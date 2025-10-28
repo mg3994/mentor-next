@@ -1,0 +1,368 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User and Authentication Models
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  image         String?
+  emailVerified DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  // Role management
+  roles         UserRole[]
+  
+  // Profile relationships
+  menteeProfile   MenteeProfile?
+  mentorProfile   MentorProfile?
+  
+  // Session relationships
+  mentorSessions  Session[] @relation("MentorSessions")
+  menteeSessions  Session[] @relation("MenteeSessions")
+  
+  // Reviews
+  reviewsGiven    Review[] @relation("ReviewsGiven")
+  reviewsReceived Review[] @relation("ReviewsReceived")
+  
+  // Safety
+  reportsGiven    Report[] @relation("ReportsGiven")
+  reportsReceived Report[] @relation("ReportsReceived")
+  blockedUsers    UserBlock[] @relation("BlockedBy")
+  blockedBy       UserBlock[] @relation("BlockedUser")
+  
+  // Support
+  supportTickets  SupportTicket[]
+  
+  @@map("users")
+}
+
+model UserRole {
+  id     String @id @default(cuid())
+  userId String
+  role   Role
+  status RoleStatus @default(PENDING)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([userId, role])
+  @@map("user_roles")
+}
+
+model MenteeProfile {
+  id           String @id @default(cuid())
+  userId       String @unique
+  learningGoals String?
+  interests    String[]
+  timezone     String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("mentee_profiles")
+}
+
+model MentorProfile {
+  id              String @id @default(cuid())
+  userId          String @unique
+  bio             String
+  expertise       String[]
+  experience      String
+  education       String?
+  certifications  String[]
+  timezone        String
+  isVerified      Boolean @default(false)
+  averageRating   Float?
+  totalSessions   Int @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Pricing
+  pricingModels   PricingModel[]
+  
+  // Availability
+  availability    Availability[]
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("mentor_profiles")
+}
+
+model PricingModel {
+  id            String @id @default(cuid())
+  mentorId      String
+  type          PricingType
+  price         Float
+  duration      Int? // minutes for one-time sessions
+  description   String?
+  isActive      Boolean @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  mentor MentorProfile @relation(fields: [mentorId], references: [id], onDelete: Cascade)
+  
+  @@map("pricing_models")
+}
+
+model Availability {
+  id        String @id @default(cuid())
+  mentorId  String
+  dayOfWeek Int // 0-6 (Sunday-Saturday)
+  startTime String // HH:mm format
+  endTime   String // HH:mm format
+  isActive  Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  mentor MentorProfile @relation(fields: [mentorId], references: [id], onDelete: Cascade)
+  
+  @@map("availability")
+}
+
+// Session and Booking Models
+model Session {
+  id              String @id @default(cuid())
+  mentorId        String
+  menteeId        String
+  startTime       DateTime
+  endTime         DateTime?
+  scheduledEnd    DateTime
+  status          SessionStatus @default(SCHEDULED)
+  pricingType     PricingType
+  agreedPrice     Float
+  actualDuration  Int? // minutes
+  sessionLink     String?
+  recordingUrl    String?
+  recordingConsent Boolean @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  mentor User @relation("MentorSessions", fields: [mentorId], references: [id])
+  mentee User @relation("MenteeSessions", fields: [menteeId], references: [id])
+  
+  // Related data
+  transaction Transaction?
+  review      Review?
+  files       SessionFile[]
+  notes       SessionNote[]
+  
+  @@map("sessions")
+}
+
+model Transaction {
+  id              String @id @default(cuid())
+  sessionId       String @unique
+  amount          Float
+  platformFee     Float
+  mentorEarnings  Float
+  status          TransactionStatus
+  paymentMethod   String?
+  createdAt       DateTime @default(now())
+  completedAt     DateTime?
+  
+  session Session @relation(fields: [sessionId], references: [id])
+  
+  @@map("transactions")
+}
+
+model Review {
+  id        String @id @default(cuid())
+  sessionId String @unique
+  reviewerId String
+  revieweeId String
+  rating    Int // 1-5
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  session  Session @relation(fields: [sessionId], references: [id])
+  reviewer User @relation("ReviewsGiven", fields: [reviewerId], references: [id])
+  reviewee User @relation("ReviewsReceived", fields: [revieweeId], references: [id])
+  
+  @@map("reviews")
+}
+
+model SessionFile {
+  id        String @id @default(cuid())
+  sessionId String
+  fileName  String
+  fileUrl   String
+  fileSize  Int
+  mimeType  String
+  uploadedBy String
+  uploadedAt DateTime @default(now())
+  expiresAt  DateTime // 30 days from upload
+  
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  @@map("session_files")
+}
+
+model SessionNote {
+  id        String @id @default(cuid())
+  sessionId String
+  content   String
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  @@map("session_notes")
+}
+
+// Safety and Support Models
+model Report {
+  id          String @id @default(cuid())
+  reporterId  String
+  reportedId  String
+  reason      String
+  description String?
+  status      ReportStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  resolvedAt  DateTime?
+  resolvedBy  String?
+  
+  reporter User @relation("ReportsGiven", fields: [reporterId], references: [id])
+  reported User @relation("ReportsReceived", fields: [reportedId], references: [id])
+  
+  @@map("reports")
+}
+
+model UserBlock {
+  id        String @id @default(cuid())
+  blockerId String
+  blockedId String
+  reason    String?
+  createdAt DateTime @default(now())
+  
+  blocker User @relation("BlockedBy", fields: [blockerId], references: [id])
+  blocked User @relation("BlockedUser", fields: [blockedId], references: [id])
+  
+  @@unique([blockerId, blockedId])
+  @@map("user_blocks")
+}
+
+model SupportTicket {
+  id          String @id @default(cuid())
+  userId      String
+  subject     String
+  description String
+  status      TicketStatus @default(OPEN)
+  priority    TicketPriority @default(MEDIUM)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  resolvedAt  DateTime?
+  
+  user User @relation(fields: [userId], references: [id])
+  messages SupportMessage[]
+  
+  @@map("support_tickets")
+}
+
+model SupportMessage {
+  id       String @id @default(cuid())
+  ticketId String
+  senderId String
+  message  String
+  isStaff  Boolean @default(false)
+  createdAt DateTime @default(now())
+  
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  
+  @@map("support_messages")
+}
+
+model AuditLog {
+  id        String @id @default(cuid())
+  userId    String?
+  action    String
+  resource  String
+  details   Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  
+  @@map("audit_logs")
+}
+
+model MentorPayout {
+  id            String @id @default(cuid())
+  mentorId      String
+  amount        Float
+  transactionIds String[]
+  status        String
+  payoutMethod  String?
+  processedAt   DateTime?
+  createdAt     DateTime @default(now())
+  
+  @@map("mentor_payouts")
+}
+
+// Enums
+enum Role {
+  MENTEE
+  MENTOR
+  ADMIN
+}
+
+enum RoleStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+}
+
+enum PricingType {
+  ONE_TIME
+  HOURLY
+  MONTHLY_SUBSCRIPTION
+}
+
+enum SessionStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum ReportStatus {
+  PENDING
+  INVESTIGATING
+  RESOLVED
+  DISMISSED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
