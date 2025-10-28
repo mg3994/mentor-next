@@ -86,6 +86,7 @@ model MentorProfile {
   timezone        String
   isVerified      Boolean @default(false)
   averageRating   Float?
+  totalReviews    Int @default(0)
   totalSessions   Int @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -137,6 +138,7 @@ model Session {
   id              String @id @default(cuid())
   mentorId        String
   menteeId        String
+  topic           String?
   startTime       DateTime
   endTime         DateTime?
   scheduledEnd    DateTime
@@ -144,6 +146,7 @@ model Session {
   pricingType     PricingType
   agreedPrice     Float
   actualDuration  Int? // minutes
+  duration        Int? // planned duration in minutes
   sessionLink     String?
   recordingUrl    String?
   recordingConsent Boolean @default(false)
@@ -179,18 +182,22 @@ model Transaction {
 }
 
 model Review {
-  id        String @id @default(cuid())
-  sessionId String @unique
-  reviewerId String
-  revieweeId String
-  rating    Int // 1-5
-  comment   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String @id @default(cuid())
+  sessionId   String @unique
+  mentorId    String
+  menteeId    String
+  rating      Int // 1-5
+  title       String
+  content     String
+  isAnonymous Boolean @default(false)
+  isPublic    Boolean @default(true)
+  categories  String? // JSON string for category ratings
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   
-  session  Session @relation(fields: [sessionId], references: [id])
-  reviewer User @relation("ReviewsGiven", fields: [reviewerId], references: [id])
-  reviewee User @relation("ReviewsReceived", fields: [revieweeId], references: [id])
+  session Session @relation(fields: [sessionId], references: [id])
+  mentor  User @relation("ReviewsReceived", fields: [mentorId], references: [id])
+  mentee  User @relation("ReviewsGiven", fields: [menteeId], references: [id])
   
   @@map("reviews")
 }

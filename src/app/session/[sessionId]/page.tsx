@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, Video, AlertCircle } from 'lucide-react'
-import VideoCall from '@/components/session/video-call'
+import EnhancedVideoCall from '@/components/session/enhanced-video-call'
 
 interface SessionPageProps {
   params: {
@@ -177,9 +177,10 @@ export default function SessionPage({ params }: SessionPageProps) {
 
   if (inCall) {
     return (
-      <VideoCall
+      <EnhancedVideoCall
         sessionId={params.sessionId}
         userId={session!.user.id}
+        userName={session!.user.name || 'User'}
         isHost={sessionData.currentUser.isHost}
         onCallEnd={handleCallEnd}
       />
