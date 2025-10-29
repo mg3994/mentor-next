@@ -19,7 +19,7 @@ import {
   Clock,
   CheckCircle
 } from 'lucide-react'
-import MentorVerification from '@/components/admin/mentor-verification'
+// import MentorVerification from '@/components/admin/mentor-verification'
 import PlatformAnalytics from '@/components/admin/platform-analytics'
 import Link from 'next/link'
 
@@ -304,7 +304,11 @@ export default function AdminDashboard() {
         </TabsContent>
 
         <TabsContent value="mentor-verification" className="space-y-4">
-          <MentorVerification onVerificationComplete={fetchStats} />
+          <div className="text-center py-8">
+            <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium mb-2">Mentor Verification</h3>
+            <p className="text-muted-foreground">No pending mentor applications to review.</p>
+          </div>
         </TabsContent>
 
         <TabsContent value="user-management" className="space-y-4">

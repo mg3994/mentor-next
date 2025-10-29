@@ -40,7 +40,7 @@ export function TicketList({ onTicketSelect, onCreateTicket }: TicketListProps) 
       }
 
       const result = await SupportService.getUserTickets(options)
-      
+
       if (reset) {
         setTickets(result.tickets)
         setPagination(prev => ({
@@ -133,7 +133,7 @@ export function TicketList({ onTicketSelect, onCreateTicket }: TicketListProps) 
             {pagination.total > 0 ? `${pagination.total} ticket${pagination.total !== 1 ? 's' : ''}` : 'No tickets found'}
           </p>
         </div>
-        
+
         {onCreateTicket && (
           <Button onClick={onCreateTicket}>
             Create New Ticket
@@ -186,8 +186,8 @@ export function TicketList({ onTicketSelect, onCreateTicket }: TicketListProps) 
           <div className="text-gray-400 text-6xl mb-4">🎫</div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">No support tickets</h3>
           <p className="text-gray-600 mb-4">
-            {filters.status || filters.category 
-              ? 'No tickets match your current filters.' 
+            {filters.status || filters.category
+              ? 'No tickets match your current filters.'
               : 'You haven\'t created any support tickets yet.'
             }
           </p>
@@ -213,7 +213,7 @@ export function TicketList({ onTicketSelect, onCreateTicket }: TicketListProps) 
                     <p className="text-sm text-gray-600">{formatTicketId(ticket.id)}</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-2">
                   <Badge className={getStatusColor(ticket.status)}>
                     {SupportService.getStatusInfo(ticket.status).label}
@@ -235,7 +235,7 @@ export function TicketList({ onTicketSelect, onCreateTicket }: TicketListProps) 
                     <span>Resolved {getTicketAge(ticket.resolvedAt)}</span>
                   )}
                 </div>
-                
+
                 <div className="flex items-center gap-2">
                   {ticket.assignee && (
                     <span>Assigned to {ticket.assignee.name}</span>
