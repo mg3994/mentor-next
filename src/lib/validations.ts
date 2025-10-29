@@ -7,6 +7,19 @@ export const userRegistrationSchema = z.object({
   password: z.string().min(8, 'Password must be at least 8 characters').max(100, 'Password too long'),
 })
 
+export const signUpSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters').max(50, 'Name must be less than 50 characters'),
+  email: z.string().email({ message: 'Invalid email address' }),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(100, 'Password too long'),
+  confirmPassword: z.string().min(8, 'Password must be at least 8 characters'),
+  isMentor: z.boolean().default(false),
+  isMentee: z.boolean().default(true),
+  agreeToTerms: z.boolean().refine(val => val === true, 'You must agree to the terms'),
+}).refine(data => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+})
+
 export const userLoginSchema = z.object({
   email: z.string().email({ message: 'Invalid email address' }),
   password: z.string().min(1, 'Password is required'),

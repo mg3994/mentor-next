@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { userRegistrationSchema, type UserRegistration } from '@/lib/validations'
+import { signUpSchema, type UserRegistration } from '@/lib/validations'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,21 +21,7 @@ interface SignUpData extends UserRegistration {
   agreeToTerms: boolean
 }
 
-const signUpSchema = userRegistrationSchema.extend({
-  confirmPassword: userRegistrationSchema.shape.password,
-  isMentor: userRegistrationSchema.shape.password.optional(),
-  isMentee: userRegistrationSchema.shape.password.optional(),
-  agreeToTerms: userRegistrationSchema.shape.password.optional(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-}).refine((data) => data.isMentor || data.isMentee, {
-  message: "Please select at least one role",
-  path: ["isMentee"],
-}).refine((data) => data.agreeToTerms, {
-  message: "You must agree to the terms and conditions",
-  path: ["agreeToTerms"],
-})
+
 
 export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false)
@@ -49,7 +35,7 @@ export default function SignUpPage() {
     watch,
     setValue,
     formState: { errors },
-  } = useForm<SignUpData>({
+  } = useForm<any>({
     resolver: zodResolver(signUpSchema),
     defaultValues: {
       isMentee: true,
@@ -148,7 +134,7 @@ export default function SignUpPage() {
             </Alert>
           )}
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Full Name</Label>
               <Input
@@ -159,7 +145,7 @@ export default function SignUpPage() {
                 disabled={isLoading}
               />
               {errors.name && (
-                <p className="text-sm text-red-600">{errors.name.message}</p>
+                <p className="text-sm text-red-600">{errors.name.message || 'Invalid name'}</p>
               )}
             </div>
 
@@ -173,7 +159,7 @@ export default function SignUpPage() {
                 disabled={isLoading}
               />
               {errors.email && (
-                <p className="text-sm text-red-600">{errors.email.message}</p>
+                <p className="text-sm text-red-600">{errors.email.message || 'Invalid email'}</p>
               )}
             </div>
 
@@ -187,7 +173,7 @@ export default function SignUpPage() {
                 disabled={isLoading}
               />
               {errors.password && (
-                <p className="text-sm text-red-600">{errors.password.message}</p>
+                <p className="text-sm text-red-600">{errors.password.message || 'Invalid password'}</p>
               )}
             </div>
 
@@ -201,7 +187,7 @@ export default function SignUpPage() {
                 disabled={isLoading}
               />
               {errors.confirmPassword && (
-                <p className="text-sm text-red-600">{errors.confirmPassword.message}</p>
+                <p className="text-sm text-red-600">{errors.confirmPassword.message || 'Passwords do not match'}</p>
               )}
             </div>
 
@@ -232,7 +218,7 @@ export default function SignUpPage() {
                 </div>
               </div>
               {errors.isMentee && (
-                <p className="text-sm text-red-600">{errors.isMentee.message}</p>
+                <p className="text-sm text-red-600">{errors.isMentee.message || 'Please select a role'}</p>
               )}
             </div>
 
@@ -255,7 +241,7 @@ export default function SignUpPage() {
               </Label>
             </div>
             {errors.agreeToTerms && (
-              <p className="text-sm text-red-600">{errors.agreeToTerms.message}</p>
+              <p className="text-sm text-red-600">{errors.agreeToTerms.message || 'You must agree to the terms'}</p>
             )}
 
             <Button type="submit" className="w-full" disabled={isLoading}>

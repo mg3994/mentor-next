@@ -65,14 +65,14 @@ export default function MentorSearch() {
     setValue,
     reset,
     formState: { errors },
-  } = useForm<MentorSearch>({
+  } = useForm<any>({
     resolver: zodResolver(mentorSearchSchema),
     defaultValues: {
       query: searchParams.get('q') || '',
-      page: parseInt(searchParams.get('page') || '1'),
-      limit: parseInt(searchParams.get('limit') || '10'),
-      minPrice: parseInt(searchParams.get('minPrice') || '0'),
-      maxPrice: parseInt(searchParams.get('maxPrice') || '10000'),
+      page: parseInt(searchParams.get('page') || '1') || 1,
+      limit: parseInt(searchParams.get('limit') || '10') || 10,
+      minPrice: parseInt(searchParams.get('minPrice') || '0') || undefined,
+      maxPrice: parseInt(searchParams.get('maxPrice') || '10000') || undefined,
     },
   })
 

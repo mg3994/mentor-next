@@ -11,6 +11,7 @@ export interface ReviewData {
   content: string
   isAnonymous: boolean
   isPublic: boolean
+  categories?: string
   createdAt: Date
   updatedAt: Date
   mentee?: {

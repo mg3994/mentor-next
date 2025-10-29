@@ -61,7 +61,11 @@ export default function StudentSearch() {
     watch,
     setValue,
     formState: { errors },
-  } = useForm({
+  } = useForm<{
+    query: string
+    interests: string[]
+    timezone: string
+  }>({
     defaultValues: {
       query: '',
       interests: [],

@@ -75,7 +75,7 @@ export default function PostSessionReview({
       
       if (result.existingReview) {
         setExistingReview(result.existingReview)
-        setCanEdit(result.canEdit === true)
+        setCanEdit((result as any).canEdit || false)
         
         // Populate form with existing review data
         setRating(result.existingReview.rating)

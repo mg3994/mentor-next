@@ -34,13 +34,15 @@ interface EnhancedVideoCallProps {
   userId: string
   userName: string
   isHost: boolean
+  onCallEnd?: () => void
 }
 
 export default function EnhancedVideoCall({ 
   sessionId, 
   userId, 
   userName,
-  isHost 
+  isHost,
+  onCallEnd
 }: EnhancedVideoCallProps) {
   const [isConnected, setIsConnected] = useState(false)
   const [isVideoEnabled, setIsVideoEnabled] = useState(true)
