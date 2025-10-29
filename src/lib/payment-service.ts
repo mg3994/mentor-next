@@ -1,527 +1,183 @@
-// Comprehensive Payment Service
-// This service provides a unified interface for all payment operations
-
 import { prisma } from './db'
-import { 
-  processPayment, 
-  processMentorPayout, 
-  createPaymentOrder, 
-  verifyPayment,
-  generatePaymentReceipt,
-  PaymentData,
-  PayoutData,
-  PaymentOrder
-} from './payment-utils'
-import { 
-  getPaymentMethodById, 
-  validatePaymentAmount, 
-  calculateProcessingFee,
-  RISK_CONFIG,
-  PAYOUT_CONFIG
-} from './payment-config'
-import { createAuditLog, logPaymentAction } from './db-utils'
+import { razorpayService } from './razorpay-service'
 
 export class PaymentService {
-  
-  // Initialize a new payment session
-  async initializePayment(params: {
-    sessionId: string
-    userId: string
-    pricingModelId: string
-    duration?: number
-    currency?: string
-    country?: string
-  }) {
-    try {
-      const { sessionId, userId, pricingModelId, duration, currency = 'USD', country = 'US' } = params
+  async createPaymentOrder(sessionId: string, userId: string) {
+    // Find session
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+      include: {
+        mentee: true,
+      },
+    })
 
-      // Get session and pricing details
-      const session = await prisma.session.findUnique({
-        where: { id: sessionId },
-        include: {
-          mentor: {
-            include: {
-              mentorProfile: {
-                include: {
-                  pricingModels: true,
-                },
-              },
-            },
-          },
-          mentee: true,
-        },
-      })
-
-      if (!session) {
-        throw new Error('Session not found')
-      }
-
-      if (session.menteeId !== userId) {
-        throw new Error('Unauthorized access to session')
-      }
-
-      // Get pricing model
-      const pricingModel = session.mentor.mentorProfile?.pricingModels.find(
-        (pm: any) => pm.id === pricingModelId && pm.isActive
-      )
-
-      if (!pricingModel) {
-        throw new Error('Pricing model not found or inactive')
-      }
-
-      // Calculate amount
-      const baseAmount = this.calculateAmount(pricingModel.type, pricingModel.price, duration)
-      
-      // Validate amount and get available payment methods
-      const availablePaymentMethods = await this.getAvailablePaymentMethods(
-        baseAmount, 
-        currency, 
-        country
-      )
-
-      if (availablePaymentMethods.length === 0) {
-        throw new Error('No payment methods available for this transaction')
-      }
-
-      // Create payment order
-      const order = await createPaymentOrder({
-        amount: baseAmount,
-        currency,
-        description: `Session with ${session.mentor.name}`,
-        customerInfo: {
-          userId,
-          name: session.mentee.name || 'Unknown',
-          email: session.mentee.email || '',
-        },
-        metadata: {
-          sessionId,
-          mentorId: session.mentorId,
-          pricingType: pricingModel.type,
-        },
-      })
-
-      // Log payment initialization
-      await logPaymentAction({
-        userId,
-        action: 'PAYMENT_CREATED',
-        details: {
-          orderId: order.orderId,
-          sessionId,
-          amount: baseAmount,
-          currency,
-        },
-      })
-
-      return {
-        success: true,
-        order,
-        paymentMethods: availablePaymentMethods,
-        session: {
-          id: session.id,
-          startTime: session.startTime,
-          mentor: {
-            name: session.mentor.name,
-            image: session.mentor.image,
-          },
-        },
-        pricingModel: {
-          type: pricingModel.type,
-          price: pricingModel.price,
-          description: pricingModel.description,
-        },
-      }
-
-    } catch (error) {
-      console.error('Payment initialization error:', error)
-      throw error
+    if (!session) {
+      throw new Error('Session not found')
     }
-  }
 
-  // Process a payment
-  async processPayment(params: {
-    orderId: string
-    paymentMethodId: string
-    userId: string
-    gatewayTransactionId?: string
-  }) {
-    try {
-      const { orderId, paymentMethodId, userId, gatewayTransactionId } = params
+    if (session.menteeId !== userId) {
+      throw new Error('Unauthorized')
+    }
 
-      // Get order details from audit log
-      const orderLog = await prisma.auditLog.findFirst({
-        where: {
-          action: 'PAYMENT_ORDER_CREATED',
-          resource: 'payment_order',
-          details: {
-            path: ['orderId'],
-            equals: orderId,
-          },
-        },
-      })
+    // Create Razorpay order
+    const order = await razorpayService.createOrder({
+      amount: session.agreedPrice,
+      currency: 'INR',
+      receipt: `session_${sessionId}`,
+      sessionId: sessionId,
+      userId: userId,
+      description: `Payment for session ${sessionId}`,
+    })
 
-      if (!orderLog || !orderLog.details) {
-        throw new Error('Order not found')
-      }
-
-      const orderDetails = orderLog.details as any
-      const sessionId = orderDetails.sessionId
-      const amount = orderDetails.amount
-
-      // Validate payment method
-      const paymentMethod = getPaymentMethodById(paymentMethodId)
-      if (!paymentMethod) {
-        throw new Error('Invalid payment method')
-      }
-
-      // Risk assessment
-      const riskAssessment = await this.assessRisk(userId, amount, paymentMethodId)
-      if (!riskAssessment.approved) {
-        throw new Error(`Payment blocked: ${riskAssessment.reason}`)
-      }
-
-      // Process payment
-      const paymentData: PaymentData = {
+    // Create transaction record
+    const transaction = await prisma.transaction.create({
+      data: {
         sessionId,
-        amount,
-        paymentMethod: paymentMethodId,
-        userId,
-      }
+        orderId: order.id,
+        amount: session.agreedPrice,
+        currency: 'INR',
+        platformFee: session.agreedPrice * 0.1, // 10% platform fee
+        mentorEarnings: session.agreedPrice * 0.9, // 90% to mentor
+        status: 'PENDING',
+      },
+    })
 
-      const result = await processPayment(paymentData)
-
-      // Log successful payment
-      await logPaymentAction({
-        userId,
-        action: 'PAYMENT_COMPLETED',
-        transactionId: result.transaction?.id,
-        amount,
-        details: {
-          orderId,
-          paymentMethodId,
-          gatewayTransactionId,
-        },
-      })
-
-      return result
-
-    } catch (error) {
-      console.error('Payment processing error:', error)
-      
-      // Log failed payment
-      await logPaymentAction({
-        userId: params.userId,
-        action: 'PAYMENT_FAILED',
-        details: {
-          orderId: params.orderId,
-          paymentMethodId: params.paymentMethodId,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        },
-      })
-
-      throw error
+    return {
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      transactionId: transaction.id,
     }
   }
 
-  // Process mentor payout
-  async processPayout(params: {
-    mentorId: string
-    amount: number
-    transactionIds: string[]
-    payoutMethod?: string
+  async verifyPayment(paymentData: {
+    razorpay_order_id: string
+    razorpay_payment_id: string
+    razorpay_signature: string
   }) {
-    try {
-      const { mentorId, amount, transactionIds, payoutMethod = 'bank_transfer' } = params
-
-      // Validate payout amount
-      if (amount < PAYOUT_CONFIG.minAmount) {
-        throw new Error(`Minimum payout amount is ${PAYOUT_CONFIG.minAmount}`)
-      }
-
-      if (amount > PAYOUT_CONFIG.maxAmount) {
-        throw new Error(`Maximum payout amount is ${PAYOUT_CONFIG.maxAmount}`)
-      }
-
-      // Check if mentor has sufficient earnings
-      const transactions = await prisma.transaction.findMany({
-        where: {
-          id: { in: transactionIds },
-          session: { mentorId },
-          status: 'COMPLETED',
-        },
-      })
-
-      if (transactions.length !== transactionIds.length) {
-        throw new Error('Invalid transactions for payout')
-      }
-
-      const totalEarnings = transactions.reduce((sum: number, t: any) => sum + t.mentorEarnings, 0)
-      if (Math.abs(totalEarnings - amount) > 0.01) {
-        throw new Error('Payout amount mismatch')
-      }
-
-      // Process payout
-      const payoutData: PayoutData = {
-        mentorId,
-        amount,
-        transactionIds,
-      }
-
-      const result = await processMentorPayout(payoutData)
-
-      // Log payout
-      await logPaymentAction({
-        userId: mentorId,
-        action: 'PAYOUT_PROCESSED',
-        amount,
-        details: {
-          payoutId: result.payout?.id,
-          transactionCount: transactionIds.length,
-          payoutMethod,
-        },
-      })
-
-      return result
-
-    } catch (error) {
-      console.error('Payout processing error:', error)
-      throw error
-    }
-  }
-
-  // Get available payment methods for a transaction
-  async getAvailablePaymentMethods(amount: number, currency: string, country: string) {
-    const { getPaymentMethodsByCountry, getPaymentMethodsByCurrency } = await import('./payment-config')
+    // Verify payment signature
+    const isValid = razorpayService.verifyPaymentSignature(paymentData)
     
-    // Get methods available for country and currency
-    const countryMethods = getPaymentMethodsByCountry(country)
-    const currencyMethods = getPaymentMethodsByCurrency(currency)
-    
-    // Find intersection
-    const availableMethods = countryMethods.filter(method => 
-      currencyMethods.some(cm => cm.id === method.id)
-    )
+    if (!isValid) {
+      return { success: false, error: 'Payment verification failed' }
+    }
 
-    // Filter by amount limits
-    return availableMethods.filter(method => {
-      const validation = validatePaymentAmount(amount, method.id, currency)
-      return validation.valid
-    }).map(method => ({
-      id: method.id,
-      name: method.name,
-      type: method.type,
-      processingFee: calculateProcessingFee(amount, method.id),
-      instantSettlement: method.instantSettlement,
-      requiresVerification: method.requiresVerification,
-    }))
-  }
+    // Find transaction
+    const transaction = await prisma.transaction.findUnique({
+      where: { orderId: paymentData.razorpay_order_id },
+      include: { session: true },
+    })
 
-  // Risk assessment for payments
-  async assessRisk(userId: string, amount: number, paymentMethodId: string): Promise<{
-    approved: boolean
-    reason?: string
-    riskScore: number
-  }> {
-    try {
-      let riskScore = 0
+    if (!transaction) {
+      return { success: false, error: 'Transaction not found' }
+    }
 
-      // Check daily spending limit
-      const today = new Date()
-      today.setHours(0, 0, 0, 0)
-      
-      const dailyTransactions = await prisma.transaction.findMany({
-        where: {
-          session: {
-            menteeId: userId,
-          },
-          status: 'COMPLETED',
-          completedAt: {
-            gte: today,
-          },
-        },
-      })
+    // Update transaction status
+    await prisma.transaction.update({
+      where: { id: transaction.id },
+      data: {
+        status: 'COMPLETED',
+        paymentId: paymentData.razorpay_payment_id,
+        completedAt: new Date(),
+      },
+    })
 
-      const dailySpent = dailyTransactions.reduce((sum: number, t: any) => sum + t.amount, 0)
-      
-      if (dailySpent + amount > RISK_CONFIG.maxDailyAmount) {
-        return {
-          approved: false,
-          reason: 'Daily spending limit exceeded',
-          riskScore: 100,
-        }
-      }
-
-      // Check monthly spending limit
-      const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
-      
-      const monthlyTransactions = await prisma.transaction.findMany({
-        where: {
-          session: {
-            menteeId: userId,
-          },
-          status: 'COMPLETED',
-          completedAt: {
-            gte: monthStart,
-          },
-        },
-      })
-
-      const monthlySpent = monthlyTransactions.reduce((sum: number, t: any) => sum + t.amount, 0)
-      
-      if (monthlySpent + amount > RISK_CONFIG.maxMonthlyAmount) {
-        return {
-          approved: false,
-          reason: 'Monthly spending limit exceeded',
-          riskScore: 100,
-        }
-      }
-
-      // Check for suspicious amounts
-      if (amount > RISK_CONFIG.suspiciousAmountThreshold) {
-        riskScore += 30
-      }
-
-      // Check velocity (multiple transactions in short time)
-      if (RISK_CONFIG.velocityCheckEnabled) {
-        const recentTransactions = await prisma.transaction.findMany({
-          where: {
-            session: {
-              menteeId: userId,
-            },
-            createdAt: {
-              gte: new Date(Date.now() - 60 * 60 * 1000), // Last hour
-            },
-          },
-        })
-
-        if (recentTransactions.length > 5) {
-          riskScore += 40
-        }
-      }
-
-      // Risk score assessment
-      const approved = riskScore < 70 // Approve if risk score is below 70
-
-      return {
-        approved,
-        reason: approved ? undefined : 'High risk transaction',
-        riskScore,
-      }
-
-    } catch (error) {
-      console.error('Risk assessment error:', error)
-      return {
-        approved: false,
-        reason: 'Risk assessment failed',
-        riskScore: 100,
-      }
+    return {
+      success: true,
+      transactionId: transaction.id,
+      sessionId: transaction.sessionId,
     }
   }
 
-  // Calculate amount based on pricing type
-  private calculateAmount(pricingType: string, basePrice: number, duration?: number): number {
-    switch (pricingType) {
-      case 'ONE_TIME':
-        return basePrice
-      case 'HOURLY':
-        const hours = duration ? duration / 60 : 1
-        return basePrice * hours
-      case 'MONTHLY_SUBSCRIPTION':
-        return basePrice
-      default:
-        return basePrice
+  async processRefund(transactionId: string, reason: string) {
+    const transaction = await prisma.transaction.findUnique({
+      where: { id: transactionId },
+    })
+
+    if (!transaction) {
+      throw new Error('Transaction not found')
     }
+
+    if (transaction.status !== 'COMPLETED') {
+      throw new Error('Transaction cannot be refunded')
+    }
+
+    if (!transaction.paymentId) {
+      throw new Error('Payment ID not found')
+    }
+
+    // Process refund with Razorpay
+    const refund = await razorpayService.createRefund(transaction.paymentId, transaction.amount, { reason })
+
+    // Update transaction status
+    await prisma.transaction.update({
+      where: { id: transactionId },
+      data: {
+        status: 'REFUNDED',
+        refundId: refund.id,
+        refundedAt: new Date(),
+      },
+    })
+
+    return { success: true, refundId: refund.id }
   }
 
-  // Get payment receipt
-  async getPaymentReceipt(transactionId: string, userId: string) {
-    try {
-      // Verify user has access to this transaction
-      const transaction = await prisma.transaction.findFirst({
-        where: {
-          id: transactionId,
+  async getTransactionHistory(userId: string) {
+    return prisma.transaction.findMany({
+      where: {
+        session: {
           OR: [
-            { session: { menteeId: userId } },
-            { session: { mentorId: userId } },
+            { menteeId: userId },
+            { mentorId: userId },
           ],
         },
-      })
-
-      if (!transaction) {
-        throw new Error('Transaction not found or access denied')
-      }
-
-      return await generatePaymentReceipt(transactionId)
-
-    } catch (error) {
-      console.error('Get receipt error:', error)
-      throw error
-    }
+      },
+      include: {
+        session: {
+          include: {
+            mentor: true,
+            mentee: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    })
   }
 
-  // Get payment history for a user
-  async getPaymentHistory(userId: string, params: {
-    page?: number
-    limit?: number
-    status?: string
-    startDate?: Date
-    endDate?: Date
-  } = {}) {
-    try {
-      const { page = 1, limit = 10, status, startDate, endDate } = params
-      const skip = (page - 1) * limit
+  async getEarnings(mentorId: string, startDate?: Date, endDate?: Date) {
+    const where: any = {
+      session: { mentorId },
+      status: 'COMPLETED',
+    }
 
-      const where: any = {
-        OR: [
-          { session: { menteeId: userId } },
-          { session: { mentorId: userId } },
-        ],
-      }
+    if (startDate || endDate) {
+      where.completedAt = {}
+      if (startDate) where.completedAt.gte = startDate
+      if (endDate) where.completedAt.lte = endDate
+    }
 
-      if (status) {
-        where.status = status
-      }
-
-      if (startDate || endDate) {
-        where.createdAt = {}
-        if (startDate) where.createdAt.gte = startDate
-        if (endDate) where.createdAt.lte = endDate
-      }
-
-      const [transactions, total] = await Promise.all([
-        prisma.transaction.findMany({
-          where,
+    const transactions = await prisma.transaction.findMany({
+      where,
+      include: {
+        session: {
           include: {
-            session: {
-              include: {
-                mentor: {
-                  select: { name: true, image: true },
-                },
-                mentee: {
-                  select: { name: true, image: true },
-                },
-              },
-            },
+            mentee: true,
           },
-          skip,
-          take: limit,
-          orderBy: { createdAt: 'desc' },
-        }),
-        prisma.transaction.count({ where }),
-      ])
-
-      return {
-        transactions,
-        pagination: {
-          page,
-          limit,
-          total,
-          pages: Math.ceil(total / limit),
         },
-      }
+      },
+      orderBy: { completedAt: 'desc' },
+    })
 
-    } catch (error) {
-      console.error('Get payment history error:', error)
-      throw error
+    const totalEarnings = transactions.reduce((sum, t) => sum + t.amount, 0)
+    const platformFee = totalEarnings * 0.1 // 10% platform fee
+    const netEarnings = totalEarnings - platformFee
+
+    return {
+      totalEarnings,
+      platformFee,
+      netEarnings,
+      transactionCount: transactions.length,
+      transactions,
     }
   }
 }

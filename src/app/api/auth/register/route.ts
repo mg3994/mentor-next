@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     const validatedFields = registerSchema.safeParse(body)
     if (!validatedFields.success) {
       return NextResponse.json(
-        { error: 'Invalid input data', details: validatedFields.error.errors },
+        { error: 'Invalid input data', details: validatedFields.error.issues },
         { status: 400 }
       )
     }

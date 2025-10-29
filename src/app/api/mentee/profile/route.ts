@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     const validatedFields = menteeProfileSchema.safeParse(body)
     if (!validatedFields.success) {
       return NextResponse.json(
-        { error: 'Invalid input data', details: validatedFields.error.errors },
+        { error: 'Invalid input data', details: validatedFields.error.issues },
         { status: 400 }
       )
     }
@@ -127,7 +127,7 @@ export async function PUT(request: NextRequest) {
     const validatedFields = menteeProfileSchema.safeParse(body)
     if (!validatedFields.success) {
       return NextResponse.json(
-        { error: 'Invalid input data', details: validatedFields.error.errors },
+        { error: 'Invalid input data', details: validatedFields.error.issues },
         { status: 400 }
       )
     }

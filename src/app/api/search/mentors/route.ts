@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const validatedFields = mentorSearchSchema.safeParse(searchData)
     if (!validatedFields.success) {
       return NextResponse.json(
-        { error: 'Invalid search parameters', details: validatedFields.error.errors },
+        { error: 'Invalid search parameters', details: validatedFields.error.issues },
         { status: 400 }
       )
     }

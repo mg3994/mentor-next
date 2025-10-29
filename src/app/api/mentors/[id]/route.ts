@@ -4,10 +4,10 @@ import { RoleStatus, Role } from '@prisma/client'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params
+    const { id } = await params
 
     // Find mentor profile by user ID
     const mentorProfile = await prisma.mentorProfile.findFirst({
@@ -62,10 +62,10 @@ export async function GET(
     // Get recent reviews for this mentor
     const reviews = await prisma.review.findMany({
       where: {
-        revieweeId: id,
+        mentorId: id,
       },
       include: {
-        reviewer: {
+        mentee: {
           select: {
             name: true,
             image: true,

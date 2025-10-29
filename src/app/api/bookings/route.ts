@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     const validatedFields = sessionBookingSchema.safeParse(body)
     if (!validatedFields.success) {
       return NextResponse.json(
-        { error: 'Invalid booking data', details: validatedFields.error.errors },
+        { error: 'Invalid booking data', details: validatedFields.error.issues },
         { status: 400 }
       )
     }

@@ -1,16 +1,50 @@
-# Mentor Platform
+# 🎓 Mentor Platform
 
-An online platform that connects learners with experts through a dual-role system where users can be both mentees and mentors. The platform facilitates secure, real-time mentorship sessions with flexible payment options, advanced search capabilities, and comprehensive collaboration tools.
+A comprehensive mentoring platform built with Next.js 16, featuring real-time video sessions, payment processing, and advanced analytics. Connect mentors and mentees for personalized learning experiences with secure, scalable, and user-friendly interfaces.
 
-## Features
+## ✨ Features
 
-- **Dual Role System**: Users can be both mentees and mentors
-- **Advanced Search**: Find mentors by expertise, experience, pricing, and availability
-- **Flexible Booking**: Support for one-time sessions, hourly rates, and monthly subscriptions
-- **Real-time Sessions**: Video calls, chat, whiteboard, screen sharing, and file sharing
-- **Payment Integration**: UPI and Google Pay support with automatic payouts
-- **Safety Features**: User blocking, reporting, and comprehensive support system
-- **Administrative Tools**: User management, analytics, and system monitoring
+### 👥 **Dual Role System**
+- Users can be both mentors and mentees
+- Role-based access control and permissions
+- Seamless role switching interface
+
+### 🔍 **Advanced Search & Discovery**
+- Find mentors by expertise, availability, and pricing
+- Real-time search with filters and sorting
+- Mentor recommendation algorithm
+- Student connection features
+
+### 📹 **Real-time Sessions**
+- HD video calls with Daily.co integration
+- Collaborative whiteboard and note-taking
+- Screen sharing capabilities
+- File sharing with security scanning
+- Session recording with consent management
+
+### 💳 **Payment Processing**
+- Secure payments with Razorpay (UPI, Google Pay)
+- Multiple pricing models (one-time, hourly, subscription)
+- Automatic payout processing (24-hour cycle)
+- Comprehensive earnings analytics
+
+### 📊 **Analytics & Insights**
+- Real-time earnings tracking for mentors
+- Platform usage analytics for admins
+- Session completion and satisfaction metrics
+- Tax reporting and payout analytics
+
+### 🛡️ **Safety & Security**
+- User blocking and reporting system
+- Content moderation and review system
+- Comprehensive audit logging
+- File security scanning
+
+### 📱 **Mobile Responsive**
+- Touch-friendly interfaces
+- Mobile-optimized booking flow
+- Responsive session management
+- Progressive Web App features
 
 ## Tech Stack
 

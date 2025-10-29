@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs'
+import jwt from 'jsonwebtoken'
 import { Role, RoleStatus } from '@prisma/client'
 
 // Password utilities
@@ -9,6 +10,17 @@ export async function hashPassword(password: string): Promise<string> {
 
 export async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
   return await bcrypt.compare(password, hashedPassword)
+}
+
+// JWT utilities
+export function generateToken(userData: any): string {
+  const secret = process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET || 'fallback-secret'
+  return jwt.sign(userData, secret, { expiresIn: '24h' })
+}
+
+export function verifyToken(token: string): any {
+  const secret = process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET || 'fallback-secret'
+  return jwt.verify(token, secret)
 }
 
 // Role checking utilities
@@ -58,7 +70,7 @@ export function generateVerificationToken(): string {
 }
 
 export function generateSessionId(): string {
-  return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  return `session_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
 }
 
 // Email verification utilities
@@ -66,7 +78,7 @@ export function generateEmailVerificationToken(): string {
   return generateVerificationToken()
 }
 
-export function isEmailVerificationTokenValid(token: string, createdAt: Date): boolean {
+export function isEmailVerificationTokenValid(_token: string, createdAt: Date): boolean {
   const tokenAge = Date.now() - createdAt.getTime()
   const maxAge = 24 * 60 * 60 * 1000 // 24 hours
   return tokenAge < maxAge

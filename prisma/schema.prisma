@@ -175,13 +175,18 @@ model Session {
 model Transaction {
   id              String @id @default(cuid())
   sessionId       String @unique
+  orderId         String? @unique // Razorpay order ID
+  paymentId       String? // Razorpay payment ID
+  refundId        String? // Razorpay refund ID
   amount          Float
+  currency        String @default("INR")
   platformFee     Float
   mentorEarnings  Float
   status          TransactionStatus
   paymentMethod   String?
   createdAt       DateTime @default(now())
   completedAt     DateTime?
+  refundedAt      DateTime?
   
   session Session @relation(fields: [sessionId], references: [id])
   
