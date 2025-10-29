@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, X, Plus } from 'lucide-react'
+import { Loader2, X, Plus, CheckCircle } from 'lucide-react'
 import { EXPERTISE_CATEGORIES, COMMON_TIMEZONES } from '@/lib/constants'
 
 export default function MentorProfileForm() {
@@ -73,8 +73,9 @@ export default function MentorProfileForm() {
     const updated = selectedCertifications.filter(c => c !== certification)
     setSelectedCertifications(updated)
     setValue('certifications', updated)
-  }  c
-onst onSubmit = async (data: MentorProfile) => {
+  }
+
+  const onSubmit = async (data: MentorProfile) => {
     setIsLoading(true)
     setError(null)
 

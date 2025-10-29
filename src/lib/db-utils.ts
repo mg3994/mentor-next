@@ -406,8 +406,9 @@ export async function createSessionFile(data: {
   mimeType: string
   uploadedBy: string
 }) {
+  // Set expiration to 30 days from now
   const expiresAt = new Date()
-  expiresAt.setDate(expiresAt.getDate() + 30) // 30 days from now
+  expiresAt.setDate(expiresAt.getDate() + 30)
 
   return await prisma.sessionFile.create({
     data: {
@@ -1029,3 +1030,554 @@ export async function batchUpdateMentorRatings(mentorIds: string[]) {
   
   return results
 }
+
+// Enhanced database utilities with audit logging integration
+import { AuditService, AUDIT_ACTIONS } from './audit-service'
+
+// Enhanced user utilities with audit logging
+export async function createUserWithAudit(data: {
+  email: string
+  name: string
+  image?: string
+}, auditData?: { ipAddress?: string; userAgent?: string }) {
+  const user = await createUser(data)
+  
+  await AuditService.logUserAction({
+    userId: user.id,
+    action: AUDIT_ACTIONS.USER_CREATED,
+    details: { email: data.email, name: data.name },
+    ipAddress: auditData?.ipAddress,
+    userAgent: auditData?.userAgent,
+  })
+  
+  return user
+}
+
+export async function updateUserWithAudit(
+  userId: string, 
+  data: { name?: string; image?: string },
+  auditData?: { ipAddress?: string; userAgent?: string }
+) {
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data,
+    include: {
+      roles: true,
+      menteeProfile: true,
+      mentorProfile: true,
+    },
+  })
+  
+  await AuditService.logUserAction({
+    userId,
+    action: AUDIT_ACTIONS.USER_UPDATED,
+    details: data,
+    ipAddress: auditData?.ipAddress,
+    userAgent: auditData?.userAgent,
+  })
+  
+  return user
+}
+
+// Enhanced safety utilities with audit logging
+export async function createReportWithAudit(
+  data: {
+    reporterId: string
+    reportedId: string
+    reason: string
+    description?: string
+  },
+  auditData?: { ipAddress?: string; userAgent?: string }
+) {
+  const report = await createReport(data)
+  
+  await AuditService.logSafetyAction({
+    userId: data.reporterId,
+    action: AUDIT_ACTIONS.USER_REPORTED,
+    targetUserId: data.reportedId,
+    reportId: report.id,
+    reason: data.reason,
+    details: { description: data.description },
+    ipAddress: auditData?.ipAddress,
+    userAgent: auditData?.userAgent,
+  })
+  
+  return report
+}
+
+export async function blockUserWithAudit(
+  blockerId: string, 
+  blockedId: string, 
+  reason?: string,
+  auditData?: { ipAddress?: string; userAgent?: string }
+) {
+  const block = await blockUser(blockerId, blockedId, reason)
+  
+  await AuditService.logSafetyAction({
+    userId: blockerId,
+    action: AUDIT_ACTIONS.USER_BLOCKED,
+    targetUserId: blockedId,
+    reason,
+    ipAddress: auditData?.ipAddress,
+    userAgent: auditData?.userAgent,
+  })
+  
+  return block
+}
+
+export async function resolveReport(
+  reportId: string, 
+  resolvedBy: string, 
+  resolution: string,
+  auditData?: { ipAddress?: string; userAgent?: string }
+) {
+  const report = await prisma.report.update({
+    where: { id: reportId },
+    data: {
+      status: 'RESOLVED',
+      resolvedAt: new Date(),
+      resolvedBy,
+    },
+    include: {
+      reporter: true,
+      reported: true,
+    },
+  })
+  
+  await AuditService.logSafetyAction({
+    userId: resolvedBy,
+    action: AUDIT_ACTIONS.REPORT_RESOLVED,
+    reportId,
+    details: { resolution, reportedUserId: report.reportedId },
+    ipAddress: auditData?.ipAddress,
+    userAgent: auditData?.userAgent,
+  })
+  
+  return report
+}
+
+// Enhanced session utilities with audit logging
+export async function createSessionWithAudit(
+  data: {
+    mentorId: string
+    menteeId: string
+    startTime: Date
+    scheduledEnd: Date
+    pricingType: PricingType
+    agreedPrice: number
+  },
+  auditData?: { ipAddress?: string; userAgent?: string }
+) {
+  const session = await createSession(data)
+  
+  await AuditService.logSessionAction({
+    userId: data.menteeId,
+    action: AUDIT_ACTIONS.SESSION_CREATED,
+    sessionId: session.id,
+    details: {
+      mentorId: data.mentorId,
+      pricingType: data.pricingType,
+      agreedPrice: data.agreedPrice,
+    },
+    ipAddress: auditData?.ipAddress,
+    userAgent: auditData?.userAgent,
+  })
+  
+  return session
+}
+
+export async function updateSessionStatusWithAudit(
+  sessionId: string, 
+  status: SessionStatus, 
+  userId?: string,
+  endTime?: Date,
+  auditData?: { ipAddress?: string; userAgent?: string }
+) {
+  const session = await updateSessionStatus(sessionId, status, endTime)
+  
+  let action: typeof AUDIT_ACTIONS[keyof typeof AUDIT_ACTIONS]
+  switch (status) {
+    case SessionStatus.IN_PROGRESS:
+      action = AUDIT_ACTIONS.SESSION_STARTED
+      break
+    case SessionStatus.COMPLETED:
+      action = AUDIT_ACTIONS.SESSION_COMPLETED
+      break
+    case SessionStatus.CANCELLED:
+      action = AUDIT_ACTIONS.SESSION_CANCELLED
+      break
+    default:
+      action = AUDIT_ACTIONS.SESSION_CREATED
+  }
+  
+  await AuditService.logSessionAction({
+    userId,
+    action,
+    sessionId,
+    details: { status, endTime },
+    ipAddress: auditData?.ipAddress,
+    userAgent: auditData?.userAgent,
+  })
+  
+  return session
+}
+
+// Enhanced file management with audit logging
+export async function createSessionFileWithAudit(
+  data: {
+    sessionId: string
+    fileName: string
+    fileUrl: string
+    fileSize: number
+    mimeType: string
+    uploadedBy: string
+  },
+  auditData?: { ipAddress?: string; userAgent?: string }
+) {
+  const file = await createSessionFile(data)
+  
+  await AuditService.logSessionAction({
+    userId: data.uploadedBy,
+    action: AUDIT_ACTIONS.SESSION_FILE_UPLOADED,
+    sessionId: data.sessionId,
+    details: {
+      fileName: data.fileName,
+      fileSize: data.fileSize,
+      mimeType: data.mimeType,
+    },
+    ipAddress: auditData?.ipAddress,
+    userAgent: auditData?.userAgent,
+  })
+  
+  return file
+}
+
+export async function deleteSessionFileWithAudit(
+  fileId: string, 
+  userId: string,
+  auditData?: { ipAddress?: string; userAgent?: string }
+) {
+  const file = await prisma.sessionFile.findUnique({
+    where: { id: fileId },
+  })
+  
+  if (!file) {
+    throw new Error('File not found')
+  }
+  
+  await deleteSessionFile(fileId)
+  
+  await AuditService.logSessionAction({
+    userId,
+    action: AUDIT_ACTIONS.SESSION_FILE_DELETED,
+    sessionId: file.sessionId,
+    details: {
+      fileName: file.fileName,
+      fileSize: file.fileSize,
+    },
+    ipAddress: auditData?.ipAddress,
+    userAgent: auditData?.userAgent,
+  })
+}
+
+// Enhanced transaction utilities with audit logging
+export async function createTransactionWithAudit(
+  data: {
+    sessionId: string
+    amount: number
+    platformFee: number
+    mentorEarnings: number
+    paymentMethod?: string
+  },
+  userId?: string,
+  auditData?: { ipAddress?: string; userAgent?: string }
+) {
+  const transaction = await createTransaction(data)
+  
+  await AuditService.logPaymentAction({
+    userId,
+    action: AUDIT_ACTIONS.PAYMENT_CREATED,
+    transactionId: transaction.id,
+    amount: data.amount,
+    paymentMethod: data.paymentMethod,
+    details: {
+      sessionId: data.sessionId,
+      platformFee: data.platformFee,
+      mentorEarnings: data.mentorEarnings,
+    },
+    ipAddress: auditData?.ipAddress,
+    userAgent: auditData?.userAgent,
+  })
+  
+  return transaction
+}
+
+export async function completeTransactionWithAudit(
+  transactionId: string,
+  userId?: string,
+  auditData?: { ipAddress?: string; userAgent?: string }
+) {
+  const transaction = await completeTransaction(transactionId)
+  
+  await AuditService.logPaymentAction({
+    userId,
+    action: AUDIT_ACTIONS.PAYMENT_COMPLETED,
+    transactionId,
+    amount: transaction.amount,
+    details: {
+      sessionId: transaction.sessionId,
+      completedAt: transaction.completedAt,
+    },
+    ipAddress: auditData?.ipAddress,
+    userAgent: auditData?.userAgent,
+  })
+  
+  return transaction
+}
+
+// Enhanced review utilities with audit logging
+export async function createReviewWithAudit(
+  data: {
+    sessionId: string
+    reviewerId: string
+    revieweeId: string
+    rating: number
+    comment?: string
+  },
+  auditData?: { ipAddress?: string; userAgent?: string }
+) {
+  const review = await createReview(data)
+  
+  await AuditService.logReviewAction({
+    userId: data.reviewerId,
+    action: AUDIT_ACTIONS.REVIEW_CREATED,
+    reviewId: review.id,
+    sessionId: data.sessionId,
+    rating: data.rating,
+    details: {
+      revieweeId: data.revieweeId,
+      hasComment: !!data.comment,
+    },
+    ipAddress: auditData?.ipAddress,
+    userAgent: auditData?.userAgent,
+  })
+  
+  return review
+}
+
+export async function updateReviewWithAudit(
+  reviewId: string,
+  data: { rating?: number; comment?: string },
+  userId: string,
+  auditData?: { ipAddress?: string; userAgent?: string }
+) {
+  const review = await updateReview(reviewId, data)
+  
+  await AuditService.logReviewAction({
+    userId,
+    action: AUDIT_ACTIONS.REVIEW_UPDATED,
+    reviewId,
+    rating: data.rating,
+    details: data,
+    ipAddress: auditData?.ipAddress,
+    userAgent: auditData?.userAgent,
+  })
+  
+  return review
+}
+
+// Enhanced admin utilities with audit logging
+export async function suspendUserWithAudit(
+  userId: string, 
+  adminUserId: string, 
+  reason?: string,
+  auditData?: { ipAddress?: string; userAgent?: string }
+) {
+  const result = await suspendUser(userId, reason)
+  
+  await AuditService.logAdminAction({
+    adminUserId,
+    action: AUDIT_ACTIONS.USER_SUSPENDED,
+    targetUserId: userId,
+    details: { reason },
+    ipAddress: auditData?.ipAddress,
+    userAgent: auditData?.userAgent,
+  })
+  
+  return result
+}
+
+export async function reactivateUserWithAudit(
+  userId: string, 
+  adminUserId: string,
+  auditData?: { ipAddress?: string; userAgent?: string }
+) {
+  const result = await reactivateUser(userId)
+  
+  await AuditService.logAdminAction({
+    adminUserId,
+    action: AUDIT_ACTIONS.USER_REACTIVATED,
+    targetUserId: userId,
+    ipAddress: auditData?.ipAddress,
+    userAgent: auditData?.userAgent,
+  })
+  
+  return result
+}
+
+// Database connection and health utilities
+export async function testDatabaseConnection(): Promise<boolean> {
+  try {
+    await prisma.$queryRaw`SELECT 1`
+    return true
+  } catch (error) {
+    console.error('Database connection test failed:', error)
+    return false
+  }
+}
+
+export async function getDatabaseStats() {
+  try {
+    const [
+      userCount,
+      mentorCount,
+      menteeCount,
+      sessionCount,
+      transactionCount,
+      reviewCount,
+      reportCount,
+      auditLogCount,
+    ] = await Promise.all([
+      prisma.user.count(),
+      prisma.mentorProfile.count(),
+      prisma.menteeProfile.count(),
+      prisma.session.count(),
+      prisma.transaction.count(),
+      prisma.review.count(),
+      prisma.report.count(),
+      prisma.auditLog.count(),
+    ])
+
+    return {
+      users: userCount,
+      mentors: mentorCount,
+      mentees: menteeCount,
+      sessions: sessionCount,
+      transactions: transactionCount,
+      reviews: reviewCount,
+      reports: reportCount,
+      auditLogs: auditLogCount,
+      timestamp: new Date(),
+    }
+  } catch (error) {
+    console.error('Failed to get database stats:', error)
+    throw error
+  }
+}
+
+// Batch operations with transaction support
+export async function batchOperationWithTransaction<T>(
+  operations: (() => Promise<T>)[]
+): Promise<T[]> {
+  return await prisma.$transaction(async (tx) => {
+    const results: T[] = []
+    for (const operation of operations) {
+      const result = await operation()
+      results.push(result)
+    }
+    return results
+  })
+}
+
+// Data validation utilities
+export function validateEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return emailRegex.test(email)
+}
+
+export function validatePhoneNumber(phone: string): boolean {
+  const phoneRegex = /^\+?[\d\s\-\(\)]{10,}$/
+  return phoneRegex.test(phone)
+}
+
+export function sanitizeString(input: string): string {
+  return input.trim().replace(/[<>]/g, '')
+}
+
+export function validateCUID(id: string): boolean {
+  const cuidRegex = /^c[a-z0-9]{24}$/
+  return cuidRegex.test(id)
+}
+
+// Performance monitoring utilities
+export async function measureQueryPerformance<T>(
+  queryName: string,
+  queryFn: () => Promise<T>
+): Promise<{ result: T; duration: number }> {
+  const startTime = Date.now()
+  const result = await queryFn()
+  const duration = Date.now() - startTime
+  
+  console.log(`Query ${queryName} took ${duration}ms`)
+  
+  return { result, duration }
+}
+
+// Cache utilities for frequently accessed data
+export async function getCachedMentorProfile(mentorId: string) {
+  // This would integrate with Redis caching in a real implementation
+  return await getMentorProfile(mentorId)
+}
+
+export async function invalidateMentorProfileCache(mentorId: string) {
+  // This would clear Redis cache in a real implementation
+  console.log(`Cache invalidated for mentor ${mentorId}`)
+}
+
+// Error handling utilities
+export class DatabaseError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public details?: any
+  ) {
+    super(message)
+    this.name = 'DatabaseError'
+  }
+}
+
+export function handlePrismaError(error: any): DatabaseError {
+  if (error.code === 'P2002') {
+    return new DatabaseError('Unique constraint violation', 'DUPLICATE_ENTRY', error.meta)
+  }
+  if (error.code === 'P2025') {
+    return new DatabaseError('Record not found', 'NOT_FOUND', error.meta)
+  }
+  if (error.code === 'P2003') {
+    return new DatabaseError('Foreign key constraint violation', 'FOREIGN_KEY_ERROR', error.meta)
+  }
+  
+  return new DatabaseError('Database operation failed', 'UNKNOWN_ERROR', error)
+}
+
+// Cleanup utilities with enhanced logging
+export async function cleanupExpiredDataWithAudit() {
+  const result = await cleanupExpiredData()
+  
+  await AuditService.logSystemAction({
+    action: AUDIT_ACTIONS.SYSTEM_CLEANUP,
+    details: {
+      type: 'expired_files',
+      deletedFiles: result.deletedFiles,
+      timestamp: new Date().toISOString(),
+    },
+  })
+  
+  return result
+}
+
+// Export enhanced utilities
+export {
+  AuditService,
+  AUDIT_ACTIONS,
+} from './audit-service'

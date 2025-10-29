@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { createPaymentOrder, calculateSessionPrice } from '@/lib/payment-utils'
+import { razorpayService } from '@/lib/razorpay-service'
+import { getAvailablePaymentMethods, validatePaymentAmount } from '@/lib/razorpay-config'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
 
@@ -79,33 +80,59 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Calculate total amount
-    const baseAmount = calculateSessionPrice(
-      pricingModel.type as any,
-      pricingModel.price,
-      duration
-    )
+    // Calculate total amount based on pricing type
+    let baseAmount: number
+    switch (pricingModel.type) {
+      case 'ONE_TIME':
+        baseAmount = pricingModel.price
+        break
+      case 'HOURLY':
+        const hours = duration ? duration / 60 : 1
+        baseAmount = pricingModel.price * hours
+        break
+      case 'MONTHLY_SUBSCRIPTION':
+        baseAmount = pricingModel.price
+        break
+      default:
+        baseAmount = pricingModel.price
+    }
 
-    // Create payment order
-    const order = await createPaymentOrder({
+    // Validate payment amount
+    const validation = validatePaymentAmount(baseAmount, 'upi')
+    if (!validation.valid) {
+      return NextResponse.json(
+        { error: validation.error },
+        { status: 400 }
+      )
+    }
+
+    // Create Razorpay order
+    const order = await razorpayService.createOrder({
       amount: baseAmount,
-      currency: 'USD',
+      currency: 'INR',
+      sessionId,
+      userId: session.user.id,
       description: `Session with ${sessionData.mentor.name}`,
-      customerInfo: {
-        userId: session.user.id,
-        name: session.user.name || 'Unknown',
-        email: session.user.email || '',
-      },
-      metadata: {
-        sessionId,
+      notes: {
         mentorId: sessionData.mentorId,
         pricingType: pricingModel.type,
+        duration: duration?.toString() || '',
       },
     })
 
+    // Get available payment methods
+    const availablePaymentMethods = getAvailablePaymentMethods()
+
     return NextResponse.json({
       success: true,
-      order,
+      order: {
+        id: order.id,
+        amount: baseAmount,
+        currency: order.currency,
+        receipt: order.receipt,
+      },
+      razorpayKeyId: process.env.RAZORPAY_KEY_ID,
+      paymentMethods: availablePaymentMethods,
       session: {
         id: sessionData.id,
         startTime: sessionData.startTime,

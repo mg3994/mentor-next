@@ -6,8 +6,7 @@ import { earningsService } from '@/lib/earnings-service'
 import { hasRole } from '@/lib/auth-utils'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
-import { TransactionStatus } from '@/types'
-import { Role } from '@/types'
+import { TransactionStatus, Role } from '@prisma/client'
 
 const payoutSchema = z.object({
   amount: z.number().min(0.01),
@@ -16,7 +15,7 @@ const payoutSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -34,12 +33,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    
+
     // Validate input
     const validatedFields = payoutSchema.safeParse(body)
     if (!validatedFields.success) {
       return NextResponse.json(
-        { error: 'Invalid payout data', details: validatedFields.error.errors },
+        { error: 'Invalid payout data', details: validatedFields.error.issues },
         { status: 400 }
       )
     }
@@ -83,13 +82,13 @@ export async function POST(request: NextRequest) {
     // Select transactions for payout (up to the requested amount)
     let remainingAmount = amount
     const selectedTransactions = []
-    
+
     for (const transaction of unpaidTransactions) {
       if (remainingAmount <= 0) break
-      
+
       selectedTransactions.push(transaction.id)
       remainingAmount -= transaction.mentorEarnings
-      
+
       if (remainingAmount <= 0) break
     }
 
@@ -104,9 +103,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Payout request error:', error)
-    
+
     return NextResponse.json(
-      { 
+      {
         error: error instanceof Error ? error.message : 'Payout processing failed',
         success: false,
       },

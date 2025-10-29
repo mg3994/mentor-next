@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { getAvailablePaymentMethods } from '@/lib/payment-utils'
+import { getAvailablePaymentMethods, calculateProcessingFee } from '@/lib/razorpay-config'
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,11 +14,19 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const paymentMethods = getAvailablePaymentMethods()
+    // Get query parameters for amount (to calculate processing fees)
+    const { searchParams } = new URL(request.url)
+    const amount = searchParams.get('amount')
+
+    const paymentMethods = getAvailablePaymentMethods().map(method => ({
+      ...method,
+      processingFee: amount ? calculateProcessingFee(parseFloat(amount), method.id) : 0,
+    }))
 
     return NextResponse.json({
       success: true,
       paymentMethods,
+      razorpayKeyId: process.env.RAZORPAY_KEY_ID,
     })
 
   } catch (error) {

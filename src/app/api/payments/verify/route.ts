@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { verifyPayment, processPayment } from '@/lib/payment-utils'
+import { razorpayService } from '@/lib/razorpay-service'
+import { convertFromRazorpayAmount } from '@/lib/razorpay-config'
+import { createTransactionWithAudit } from '@/lib/db-utils'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
 
 const verifyPaymentSchema = z.object({
-  orderId: z.string().min(1, 'Order ID is required'),
-  gatewayTransactionId: z.string().min(1, 'Gateway transaction ID is required'),
-  paymentMethod: z.string().min(1, 'Payment method is required'),
+  razorpay_order_id: z.string().min(1, 'Razorpay order ID is required'),
+  razorpay_payment_id: z.string().min(1, 'Razorpay payment ID is required'),
+  razorpay_signature: z.string().min(1, 'Razorpay signature is required'),
 })
 
 export async function POST(request: NextRequest) {
@@ -33,42 +35,41 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { orderId, gatewayTransactionId, paymentMethod } = validatedFields.data
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = validatedFields.data
 
-    // Verify payment with gateway
-    const verificationResult = await verifyPayment(orderId, gatewayTransactionId)
+    // Verify payment signature with Razorpay
+    const isSignatureValid = razorpayService.verifyPaymentSignature({
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    })
     
-    if (!verificationResult.success) {
+    if (!isSignatureValid) {
       return NextResponse.json(
         { 
-          error: verificationResult.error || 'Payment verification failed',
+          error: 'Invalid payment signature',
           success: false,
         },
         { status: 400 }
       )
     }
 
-    // Extract session ID from order (in real system, would fetch from payment gateway)
-    // For demo, we'll extract from audit logs
-    const orderLog = await prisma.auditLog.findFirst({
-      where: {
-        action: 'PAYMENT_ORDER_CREATED',
-        resource: 'payment_order',
-        details: {
-          path: ['orderId'],
-          equals: orderId,
-        },
-      },
-    })
+    // Get payment details from Razorpay
+    const payment = await razorpayService.getPayment(razorpay_payment_id)
+    const order = await razorpayService.getOrder(razorpay_order_id)
 
-    if (!orderLog || !orderLog.details || typeof orderLog.details !== 'object') {
+    if (payment.status !== 'captured' && payment.status !== 'authorized') {
       return NextResponse.json(
-        { error: 'Order not found' },
-        { status: 404 }
+        { 
+          error: 'Payment not successful',
+          success: false,
+        },
+        { status: 400 }
       )
     }
 
-    const sessionId = (orderLog.details as any).sessionId
+    // Extract session ID from order notes
+    const sessionId = order.notes.sessionId
     if (!sessionId) {
       return NextResponse.json(
         { error: 'Invalid order data' },
@@ -76,20 +77,77 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Process the payment
-    const paymentResult = await processPayment({
-      sessionId,
-      amount: verificationResult.amount || 0,
-      paymentMethod,
-      userId: session.user.id,
+    // Get session details
+    const sessionData = await prisma.session.findUnique({
+      where: { id: sessionId },
+      include: {
+        mentor: true,
+        mentee: true,
+      },
+    })
+
+    if (!sessionData) {
+      return NextResponse.json(
+        { error: 'Session not found' },
+        { status: 404 }
+      )
+    }
+
+    // Verify user is the mentee for this session
+    if (sessionData.menteeId !== session.user.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized access to session' },
+        { status: 403 }
+      )
+    }
+
+    // Calculate platform fee and mentor earnings
+    const amount = convertFromRazorpayAmount(payment.amount)
+    const platformFeeRate = 0.05 // 5% platform fee
+    const platformFee = amount * platformFeeRate
+    const mentorEarnings = amount - platformFee
+
+    // Create transaction record
+    const transaction = await createTransactionWithAudit(
+      {
+        sessionId,
+        amount,
+        platformFee,
+        mentorEarnings,
+        paymentMethod: payment.method,
+      },
+      session.user.id,
+      {
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+        userAgent: request.headers.get('user-agent') || 'unknown',
+      }
+    )
+
+    // Update session status to paid
+    await prisma.session.update({
+      where: { id: sessionId },
+      data: {
+        status: 'SCHEDULED',
+      },
     })
 
     return NextResponse.json({
       success: true,
-      transaction: paymentResult.transaction,
+      transaction: {
+        id: transaction.id,
+        amount,
+        platformFee,
+        mentorEarnings,
+        status: transaction.status,
+      },
+      payment: {
+        id: payment.id,
+        method: payment.method,
+        status: payment.status,
+      },
       message: 'Payment verified and processed successfully',
-      orderId,
-      gatewayTransactionId,
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
     })
 
   } catch (error) {
