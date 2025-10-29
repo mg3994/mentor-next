@@ -17,6 +17,11 @@ interface LogContext {
   action?: string
   resource?: string
   metadata?: Record<string, any>
+  error?: {
+    name: string
+    message: string
+    stack?: string
+  }
 }
 
 // Create Winston logger
@@ -177,47 +182,35 @@ export class AppLogger {
 // Singleton instance
 export const appLogger = AppLogger.getInstance()
 
-// Request logging middleware
-export function createRequestLogger() {
-  return (req: Request, res: Response, next: Function) => {
-    const start = Date.now()
-    const requestId = crypto.randomUUID()
-    
-    // Add request ID to headers
-    res.setHeader('X-Request-ID', requestId)
-    
-    // Log request
-    appLogger.http('Incoming request', {
-      requestId,
-      metadata: {
-        method: req.method,
-        url: req.url,
-        userAgent: req.headers.get('user-agent'),
-        ip: req.headers.get('x-forwarded-for') || 'unknown',
-      },
-    })
+// Request logging helper for Next.js API routes
+export function logRequest(req: Request, metadata?: Record<string, any>) {
+  const requestId = crypto.randomUUID()
+  
+  appLogger.http('Incoming request', {
+    requestId,
+    metadata: {
+      method: req.method,
+      url: req.url,
+      userAgent: req.headers.get('user-agent'),
+      ip: req.headers.get('x-forwarded-for') || 'unknown',
+      ...metadata,
+    },
+  })
+  
+  return requestId
+}
 
-    // Log response (this would need to be adapted for Next.js API routes)
-    const originalSend = res.send
-    res.send = function(body) {
-      const duration = Date.now() - start
-      
-      appLogger.http('Request completed', {
-        requestId,
-        metadata: {
-          method: req.method,
-          url: req.url,
-          statusCode: res.statusCode,
-          duration,
-          responseSize: body ? body.length : 0,
-        },
-      })
-      
-      return originalSend.call(this, body)
-    }
-
-    next()
-  }
+export function logResponse(requestId: string, req: Request, status: number, duration: number, metadata?: Record<string, any>) {
+  appLogger.http('Request completed', {
+    requestId,
+    metadata: {
+      method: req.method,
+      url: req.url,
+      statusCode: status,
+      duration,
+      ...metadata,
+    },
+  })
 }
 
 // Database query logging

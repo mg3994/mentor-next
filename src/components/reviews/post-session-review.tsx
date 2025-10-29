@@ -221,7 +221,7 @@ export default function PostSessionReview({
               key={star}
               type="button"
               onClick={() => setCategories(prev => ({ ...prev, [category]: star }))}
-              disabled={existingReview && !isEditing}
+              disabled={!!(existingReview && !isEditing)}
               className="cursor-pointer hover:scale-110 transition-transform disabled:cursor-default"
             >
               <Star

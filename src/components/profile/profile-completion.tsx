@@ -7,6 +7,14 @@ import { Badge } from '@/components/ui/badge'
 import { CheckCircle, Circle, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 
+interface CompletionItem {
+  id: string
+  label: string
+  completed: boolean
+  required: boolean
+  note?: string
+}
+
 interface ProfileCompletionProps {
   userType: 'mentor' | 'mentee'
   profile?: any
@@ -14,49 +22,56 @@ interface ProfileCompletionProps {
 }
 
 export default function ProfileCompletion({ userType, profile, className }: ProfileCompletionProps) {
-  const getMentorCompletionItems = () => {
+  const getMentorCompletionItems = (): CompletionItem[] => {
     const items = [
       {
         id: 'bio',
         label: 'Professional Bio',
         completed: profile?.bio && profile.bio.length >= 50,
         required: true,
+        note: 'Add a detailed professional bio (minimum 50 characters)',
       },
       {
         id: 'expertise',
         label: 'Areas of Expertise',
         completed: profile?.expertise && profile.expertise.length > 0,
         required: true,
+        note: 'Select your areas of expertise',
       },
       {
         id: 'experience',
         label: 'Professional Experience',
         completed: profile?.experience && profile.experience.length >= 10,
         required: true,
+        note: 'Add your professional experience (minimum 10 characters)',
       },
       {
         id: 'pricing',
         label: 'Pricing Models',
         completed: profile?.pricingModels && profile.pricingModels.length > 0,
         required: true,
+        note: 'Set up your pricing models for sessions',
       },
       {
         id: 'availability',
         label: 'Availability Schedule',
         completed: profile?.availability && profile.availability.length > 0,
         required: true,
+        note: 'Configure your available time slots',
       },
       {
         id: 'education',
         label: 'Education Background',
         completed: profile?.education && profile.education.length > 0,
         required: false,
+        note: 'Add your educational background',
       },
       {
         id: 'certifications',
         label: 'Certifications',
         completed: profile?.certifications && profile.certifications.length > 0,
         required: false,
+        note: 'Add relevant certifications',
       },
       {
         id: 'verification',
@@ -70,13 +85,14 @@ export default function ProfileCompletion({ userType, profile, className }: Prof
     return items
   }
 
-  const getMenteeCompletionItems = () => {
+  const getMenteeCompletionItems = (): CompletionItem[] => {
     const items = [
       {
         id: 'interests',
         label: 'Areas of Interest',
         completed: profile?.interests && profile.interests.length > 0,
         required: true,
+        note: 'Select your areas of interest',
       },
       {
         id: 'goals',

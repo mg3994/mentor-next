@@ -270,7 +270,7 @@ export function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
                     : 'bg-blue-600 text-white'
                     }`}
                 >
-                  <p className="text-sm">{message.content}</p>
+                  <p className="text-sm">{message.message}</p>
                   <p className={`text-xs mt-1 ${message.isStaff ? 'text-gray-500' : 'text-blue-100'}`}>
                     {message.isStaff ? 'Support Team' : 'You'} • {getTicketAge(message.createdAt)}
                   </p>
