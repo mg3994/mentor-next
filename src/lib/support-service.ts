@@ -29,8 +29,8 @@ export interface SupportMessage {
   id: string
   ticketId: string
   senderId: string
-  content: string
-  isInternal: boolean
+  message: string
+  isStaff: boolean
   attachments?: string[]
   createdAt: Date
   sender?: {

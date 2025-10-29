@@ -5,9 +5,9 @@ import { prisma } from '@/lib/db'
 import { createAuditLog } from '@/lib/db-utils'
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     noteId: string
-  }
+  }>
 }
 
 // Update specific session note
@@ -22,7 +22,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    const { noteId } = params
+    const { noteId } = await params
     const body = await request.json()
     const { content } = body
 
@@ -113,7 +113,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    const { noteId } = params
+    const { noteId } = await params
 
     // Get note and verify ownership
     const note = await prisma.sessionNote.findUnique({

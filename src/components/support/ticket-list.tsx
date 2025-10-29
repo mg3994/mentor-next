@@ -90,7 +90,7 @@ export function TicketList({ onTicketSelect, onCreateTicket }: TicketListProps) 
   }
 
   const getPriorityColor = (priority: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       LOW: 'text-gray-600',
       MEDIUM: 'text-blue-600',
       HIGH: 'text-orange-600',

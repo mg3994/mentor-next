@@ -7,7 +7,7 @@ import { createAuditLog } from '@/lib/db-utils'
 // Reopen ticket
 export async function POST(
   request: NextRequest,
-  { params }: { params: { ticketId: string } }
+  { params }: { params: Promise<{ ticketId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -19,7 +19,7 @@ export async function POST(
       )
     }
 
-    const { ticketId } = params
+    const { ticketId } = await params
     const body = await request.json()
     const { reason } = body
 

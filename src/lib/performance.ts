@@ -159,9 +159,9 @@ export const inlineCriticalCSS = (css: string) => {
 // Web Vitals tracking
 export const trackWebVitals = () => {
   if (typeof window !== 'undefined') {
-    import('web-vitals').then(({ onCLS, onFID, onFCP, onLCP, onTTFB }) => {
+    import('web-vitals').then(({ onCLS, onFCP, onLCP, onTTFB }) => {
       onCLS(console.log)
-      onFID(console.log)
+
       onFCP(console.log)
       onLCP(console.log)
       onTTFB(console.log)

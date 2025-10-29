@@ -47,14 +47,16 @@ const nextConfig: NextConfig = {
     ]
   },
   
-  // Experimental features
-  experimental: {
-    serverComponentsExternalPackages: ['@prisma/client'],
-  },
+  // Server external packages (moved from experimental in Next.js 16)
+  serverExternalPackages: ['@prisma/client'],
   
-  // Webpack configuration
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
+  // Turbopack configuration (for development - Next.js 16+)
+  turbopack: {},
+  
+  // Webpack configuration (for production builds only)
+  webpack: (config, { isServer, dev }) => {
+    // Only apply webpack config in production builds
+    if (!dev && !isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,

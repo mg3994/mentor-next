@@ -8,7 +8,7 @@ import { Role } from '@prisma/client'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -29,7 +29,7 @@ export async function POST(
       )
     }
 
-    const { userId } = params
+    const { userId } = await params
 
     // Check if user exists
     const user = await prisma.user.findUnique({

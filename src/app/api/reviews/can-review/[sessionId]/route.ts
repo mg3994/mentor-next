@@ -4,9 +4,9 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     sessionId: string
-  }
+  }>
 }
 
 // Check if user can review a session
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    const { sessionId } = params
+    const { sessionId } = await params
 
     // Get session data
     const sessionData = await prisma.session.findUnique({
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // Check if session ended recently (allow reviews up to 30 days after completion)
-    const sessionEndDate = sessionData.endTime || sessionData.scheduledEndTime
+    const sessionEndDate = sessionData.endTime || sessionData.scheduledEnd
     if (sessionEndDate) {
       const now = new Date()
       const daysSinceEnd = (now.getTime() - new Date(sessionEndDate).getTime()) / (1000 * 60 * 60 * 24)
@@ -110,7 +110,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         id: sessionData.id,
         topic: sessionData.topic,
         mentor: sessionData.mentor,
-        scheduledStartTime: sessionData.scheduledStartTime,
+        scheduledStartTime: sessionData.startTime,
         duration: sessionData.duration
       }
     })

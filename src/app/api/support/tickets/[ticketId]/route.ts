@@ -7,7 +7,7 @@ import { createAuditLog } from '@/lib/db-utils'
 // Get specific ticket with messages
 export async function GET(
   request: NextRequest,
-  { params }: { params: { ticketId: string } }
+  { params }: { params: Promise<{ ticketId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -19,7 +19,7 @@ export async function GET(
       )
     }
 
-    const { ticketId } = params
+    const { ticketId } = await params
 
     // Get ticket with messages
     const ticket = await prisma.supportTicket.findFirst({
@@ -71,7 +71,7 @@ export async function GET(
 // Update ticket (admin only for status changes)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { ticketId: string } }
+  { params }: { params: Promise<{ ticketId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -83,7 +83,7 @@ export async function PUT(
       )
     }
 
-    const { ticketId } = params
+    const { ticketId } = await params
     const body = await request.json()
     const { status, assignedTo, priority } = body
 

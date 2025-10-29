@@ -4,15 +4,15 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     mentorId: string
-  }
+  }>
 }
 
 // Get real-time rating information for a mentor
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const { mentorId } = params
+    const { mentorId } = await params
 
     // Get mentor profile with current rating
     const mentorProfile = await prisma.mentorProfile.findUnique({

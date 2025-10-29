@@ -5,9 +5,9 @@ import { prisma } from '@/lib/db'
 import { createAuditLog } from '@/lib/db-utils'
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     reviewId: string
-  }
+  }>
 }
 
 // Update a review
@@ -22,7 +22,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    const { reviewId } = params
+    const { reviewId } = await params
     const body = await request.json()
     const { rating, title, content, isAnonymous, isPublic, categories } = body
 
@@ -156,7 +156,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    const { reviewId } = params
+    const { reviewId } = await params
 
     // Get existing review
     const existingReview = await prisma.review.findUnique({

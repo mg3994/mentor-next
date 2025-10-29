@@ -145,7 +145,7 @@ export async function getMentorProfile(userId: string) {
 export async function updateMentorRating(mentorId: string) {
   const reviews = await prisma.review.findMany({
     where: {
-      revieweeId: mentorId,
+      mentorId: mentorId,
     },
   })
 
@@ -535,7 +535,7 @@ export async function updatePricingModel(id: string, data: {
 
 export async function getMentorPricingModels(mentorId: string) {
   return await prisma.pricingModel.findMany({
-    where: { 
+    where: {
       mentorId,
       isActive: true,
     },
@@ -567,7 +567,7 @@ export async function updateAvailability(id: string, data: {
 
 export async function getMentorAvailability(mentorId: string) {
   return await prisma.availability.findMany({
-    where: { 
+    where: {
       mentorId,
       isActive: true,
     },
@@ -620,17 +620,18 @@ export async function updateSessionNote(id: string, content: string) {
 // Review utilities
 export async function createReview(data: {
   sessionId: string
-  reviewerId: string
-  revieweeId: string
+  menteeId: string
+  mentorId: string
   rating: number
-  comment?: string
+  title: string
+  content: string
 }) {
   const review = await prisma.review.create({
     data,
   })
 
   // Update mentor's average rating
-  await updateMentorRating(data.revieweeId)
+  await updateMentorRating(data.mentorId)
 
   return review
 }
@@ -647,9 +648,9 @@ export async function updateReview(id: string, data: {
 
 export async function getMentorReviews(mentorId: string, limit = 10) {
   return await prisma.review.findMany({
-    where: { revieweeId: mentorId },
+    where: { mentorId: mentorId },
     include: {
-      reviewer: {
+      mentee: {
         select: {
           id: true,
           name: true,
@@ -870,10 +871,10 @@ export async function getPlatformAnalytics() {
 export async function cleanupExpiredData() {
   // Delete expired session files
   const expiredFiles = await getExpiredFiles()
-  
+
   if (expiredFiles.length > 0) {
     await deleteExpiredFiles()
-    
+
     // Log cleanup action
     await createAuditLog({
       action: 'CLEANUP_EXPIRED_FILES',
@@ -972,7 +973,7 @@ export async function checkDatabaseHealth() {
   try {
     // Test basic database connectivity
     await prisma.$queryRaw`SELECT 1`
-    
+
     // Get basic stats
     const [userCount, sessionCount, transactionCount] = await Promise.all([
       prisma.user.count(),
@@ -1014,20 +1015,20 @@ export async function batchCreateUsers(users: Array<{
 
 export async function batchUpdateMentorRatings(mentorIds: string[]) {
   const results = []
-  
+
   for (const mentorId of mentorIds) {
     try {
       const result = await updateMentorRating(mentorId)
       results.push({ mentorId, success: true, result })
     } catch (error) {
-      results.push({ 
-        mentorId, 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      results.push({
+        mentorId,
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       })
     }
   }
-  
+
   return results
 }
 
@@ -1041,7 +1042,7 @@ export async function createUserWithAudit(data: {
   image?: string
 }, auditData?: { ipAddress?: string; userAgent?: string }) {
   const user = await createUser(data)
-  
+
   await AuditService.logUserAction({
     userId: user.id,
     action: AUDIT_ACTIONS.USER_CREATED,
@@ -1049,12 +1050,12 @@ export async function createUserWithAudit(data: {
     ipAddress: auditData?.ipAddress,
     userAgent: auditData?.userAgent,
   })
-  
+
   return user
 }
 
 export async function updateUserWithAudit(
-  userId: string, 
+  userId: string,
   data: { name?: string; image?: string },
   auditData?: { ipAddress?: string; userAgent?: string }
 ) {
@@ -1067,7 +1068,7 @@ export async function updateUserWithAudit(
       mentorProfile: true,
     },
   })
-  
+
   await AuditService.logUserAction({
     userId,
     action: AUDIT_ACTIONS.USER_UPDATED,
@@ -1075,7 +1076,7 @@ export async function updateUserWithAudit(
     ipAddress: auditData?.ipAddress,
     userAgent: auditData?.userAgent,
   })
-  
+
   return user
 }
 
@@ -1090,7 +1091,7 @@ export async function createReportWithAudit(
   auditData?: { ipAddress?: string; userAgent?: string }
 ) {
   const report = await createReport(data)
-  
+
   await AuditService.logSafetyAction({
     userId: data.reporterId,
     action: AUDIT_ACTIONS.USER_REPORTED,
@@ -1101,18 +1102,18 @@ export async function createReportWithAudit(
     ipAddress: auditData?.ipAddress,
     userAgent: auditData?.userAgent,
   })
-  
+
   return report
 }
 
 export async function blockUserWithAudit(
-  blockerId: string, 
-  blockedId: string, 
+  blockerId: string,
+  blockedId: string,
   reason?: string,
   auditData?: { ipAddress?: string; userAgent?: string }
 ) {
   const block = await blockUser(blockerId, blockedId, reason)
-  
+
   await AuditService.logSafetyAction({
     userId: blockerId,
     action: AUDIT_ACTIONS.USER_BLOCKED,
@@ -1121,13 +1122,13 @@ export async function blockUserWithAudit(
     ipAddress: auditData?.ipAddress,
     userAgent: auditData?.userAgent,
   })
-  
+
   return block
 }
 
 export async function resolveReport(
-  reportId: string, 
-  resolvedBy: string, 
+  reportId: string,
+  resolvedBy: string,
   resolution: string,
   auditData?: { ipAddress?: string; userAgent?: string }
 ) {
@@ -1143,7 +1144,7 @@ export async function resolveReport(
       reported: true,
     },
   })
-  
+
   await AuditService.logSafetyAction({
     userId: resolvedBy,
     action: AUDIT_ACTIONS.REPORT_RESOLVED,
@@ -1152,7 +1153,7 @@ export async function resolveReport(
     ipAddress: auditData?.ipAddress,
     userAgent: auditData?.userAgent,
   })
-  
+
   return report
 }
 
@@ -1169,7 +1170,7 @@ export async function createSessionWithAudit(
   auditData?: { ipAddress?: string; userAgent?: string }
 ) {
   const session = await createSession(data)
-  
+
   await AuditService.logSessionAction({
     userId: data.menteeId,
     action: AUDIT_ACTIONS.SESSION_CREATED,
@@ -1182,19 +1183,19 @@ export async function createSessionWithAudit(
     ipAddress: auditData?.ipAddress,
     userAgent: auditData?.userAgent,
   })
-  
+
   return session
 }
 
 export async function updateSessionStatusWithAudit(
-  sessionId: string, 
-  status: SessionStatus, 
+  sessionId: string,
+  status: SessionStatus,
   userId?: string,
   endTime?: Date,
   auditData?: { ipAddress?: string; userAgent?: string }
 ) {
   const session = await updateSessionStatus(sessionId, status, endTime)
-  
+
   let action: typeof AUDIT_ACTIONS[keyof typeof AUDIT_ACTIONS]
   switch (status) {
     case SessionStatus.IN_PROGRESS:
@@ -1209,7 +1210,7 @@ export async function updateSessionStatusWithAudit(
     default:
       action = AUDIT_ACTIONS.SESSION_CREATED
   }
-  
+
   await AuditService.logSessionAction({
     userId,
     action,
@@ -1218,7 +1219,7 @@ export async function updateSessionStatusWithAudit(
     ipAddress: auditData?.ipAddress,
     userAgent: auditData?.userAgent,
   })
-  
+
   return session
 }
 
@@ -1235,7 +1236,7 @@ export async function createSessionFileWithAudit(
   auditData?: { ipAddress?: string; userAgent?: string }
 ) {
   const file = await createSessionFile(data)
-  
+
   await AuditService.logSessionAction({
     userId: data.uploadedBy,
     action: AUDIT_ACTIONS.SESSION_FILE_UPLOADED,
@@ -1248,25 +1249,25 @@ export async function createSessionFileWithAudit(
     ipAddress: auditData?.ipAddress,
     userAgent: auditData?.userAgent,
   })
-  
+
   return file
 }
 
 export async function deleteSessionFileWithAudit(
-  fileId: string, 
+  fileId: string,
   userId: string,
   auditData?: { ipAddress?: string; userAgent?: string }
 ) {
   const file = await prisma.sessionFile.findUnique({
     where: { id: fileId },
   })
-  
+
   if (!file) {
     throw new Error('File not found')
   }
-  
+
   await deleteSessionFile(fileId)
-  
+
   await AuditService.logSessionAction({
     userId,
     action: AUDIT_ACTIONS.SESSION_FILE_DELETED,
@@ -1293,7 +1294,7 @@ export async function createTransactionWithAudit(
   auditData?: { ipAddress?: string; userAgent?: string }
 ) {
   const transaction = await createTransaction(data)
-  
+
   await AuditService.logPaymentAction({
     userId,
     action: AUDIT_ACTIONS.PAYMENT_CREATED,
@@ -1308,7 +1309,7 @@ export async function createTransactionWithAudit(
     ipAddress: auditData?.ipAddress,
     userAgent: auditData?.userAgent,
   })
-  
+
   return transaction
 }
 
@@ -1318,7 +1319,7 @@ export async function completeTransactionWithAudit(
   auditData?: { ipAddress?: string; userAgent?: string }
 ) {
   const transaction = await completeTransaction(transactionId)
-  
+
   await AuditService.logPaymentAction({
     userId,
     action: AUDIT_ACTIONS.PAYMENT_COMPLETED,
@@ -1331,7 +1332,7 @@ export async function completeTransactionWithAudit(
     ipAddress: auditData?.ipAddress,
     userAgent: auditData?.userAgent,
   })
-  
+
   return transaction
 }
 
@@ -1339,29 +1340,30 @@ export async function completeTransactionWithAudit(
 export async function createReviewWithAudit(
   data: {
     sessionId: string
-    reviewerId: string
-    revieweeId: string
+    menteeId: string
+    mentorId: string
     rating: number
-    comment?: string
+    title: string
+    content: string
   },
   auditData?: { ipAddress?: string; userAgent?: string }
 ) {
   const review = await createReview(data)
-  
+
   await AuditService.logReviewAction({
-    userId: data.reviewerId,
+    userId: data.menteeId,
     action: AUDIT_ACTIONS.REVIEW_CREATED,
     reviewId: review.id,
     sessionId: data.sessionId,
     rating: data.rating,
     details: {
-      revieweeId: data.revieweeId,
-      hasComment: !!data.comment,
+      mentorId: data.mentorId,
+      hasContent: !!data.content,
     },
     ipAddress: auditData?.ipAddress,
     userAgent: auditData?.userAgent,
   })
-  
+
   return review
 }
 
@@ -1372,7 +1374,7 @@ export async function updateReviewWithAudit(
   auditData?: { ipAddress?: string; userAgent?: string }
 ) {
   const review = await updateReview(reviewId, data)
-  
+
   await AuditService.logReviewAction({
     userId,
     action: AUDIT_ACTIONS.REVIEW_UPDATED,
@@ -1382,19 +1384,19 @@ export async function updateReviewWithAudit(
     ipAddress: auditData?.ipAddress,
     userAgent: auditData?.userAgent,
   })
-  
+
   return review
 }
 
 // Enhanced admin utilities with audit logging
 export async function suspendUserWithAudit(
-  userId: string, 
-  adminUserId: string, 
+  userId: string,
+  adminUserId: string,
   reason?: string,
   auditData?: { ipAddress?: string; userAgent?: string }
 ) {
   const result = await suspendUser(userId, reason)
-  
+
   await AuditService.logAdminAction({
     adminUserId,
     action: AUDIT_ACTIONS.USER_SUSPENDED,
@@ -1403,17 +1405,17 @@ export async function suspendUserWithAudit(
     ipAddress: auditData?.ipAddress,
     userAgent: auditData?.userAgent,
   })
-  
+
   return result
 }
 
 export async function reactivateUserWithAudit(
-  userId: string, 
+  userId: string,
   adminUserId: string,
   auditData?: { ipAddress?: string; userAgent?: string }
 ) {
   const result = await reactivateUser(userId)
-  
+
   await AuditService.logAdminAction({
     adminUserId,
     action: AUDIT_ACTIONS.USER_REACTIVATED,
@@ -1421,7 +1423,7 @@ export async function reactivateUserWithAudit(
     ipAddress: auditData?.ipAddress,
     userAgent: auditData?.userAgent,
   })
-  
+
   return result
 }
 
@@ -1517,9 +1519,9 @@ export async function measureQueryPerformance<T>(
   const startTime = Date.now()
   const result = await queryFn()
   const duration = Date.now() - startTime
-  
+
   console.log(`Query ${queryName} took ${duration}ms`)
-  
+
   return { result, duration }
 }
 
@@ -1556,14 +1558,14 @@ export function handlePrismaError(error: any): DatabaseError {
   if (error.code === 'P2003') {
     return new DatabaseError('Foreign key constraint violation', 'FOREIGN_KEY_ERROR', error.meta)
   }
-  
+
   return new DatabaseError('Database operation failed', 'UNKNOWN_ERROR', error)
 }
 
 // Cleanup utilities with enhanced logging
 export async function cleanupExpiredDataWithAudit() {
   const result = await cleanupExpiredData()
-  
+
   await AuditService.logSystemAction({
     action: AUDIT_ACTIONS.SYSTEM_CLEANUP,
     details: {
@@ -1572,7 +1574,7 @@ export async function cleanupExpiredDataWithAudit() {
       timestamp: new Date().toISOString(),
     },
   })
-  
+
   return result
 }
 

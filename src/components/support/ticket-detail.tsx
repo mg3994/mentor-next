@@ -51,7 +51,7 @@ export function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!newMessage.trim()) return
 
     setSending(true)
@@ -60,7 +60,7 @@ export function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
 
     try {
       const message = await SupportService.addMessage(ticketId, newMessage.trim(), attachments)
-      
+
       setMessages(prev => [...prev, message])
       setNewMessage('')
       setAttachments([])
@@ -115,7 +115,7 @@ export function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
   }
 
   const getStatusColor = (status: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       OPEN: 'bg-blue-100 text-blue-800',
       IN_PROGRESS: 'bg-yellow-100 text-yellow-800',
       WAITING_FOR_USER: 'bg-purple-100 text-purple-800',
@@ -126,7 +126,7 @@ export function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
   }
 
   const getPriorityColor = (priority: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       LOW: 'text-gray-600',
       MEDIUM: 'text-blue-600',
       HIGH: 'text-orange-600',
@@ -136,7 +136,7 @@ export function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
   }
 
   const getCategoryIcon = (category: string) => {
-    const icons = {
+    const icons: Record<string, string> = {
       TECHNICAL: '🔧',
       BILLING: '💳',
       ACCOUNT: '👤',
@@ -194,7 +194,7 @@ export function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
               <p className="text-gray-600">{formatTicketId(ticket.id)}</p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <Badge className={getStatusColor(ticket.status)}>
               {SupportService.getStatusInfo(ticket.status).label}
@@ -254,7 +254,7 @@ export function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
         <div className="p-4 border-b border-gray-200">
           <h2 className="font-semibold text-gray-900">Messages ({messages.length})</h2>
         </div>
-        
+
         <div className="max-h-96 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 ? (
             <p className="text-gray-500 text-center py-8">No messages yet</p>
@@ -265,11 +265,10 @@ export function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
                 className={`flex ${message.isStaff ? 'justify-start' : 'justify-end'}`}
               >
                 <div
-                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                    message.isStaff
-                      ? 'bg-gray-100 text-gray-800'
-                      : 'bg-blue-600 text-white'
-                  }`}
+                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${message.isStaff
+                    ? 'bg-gray-100 text-gray-800'
+                    : 'bg-blue-600 text-white'
+                    }`}
                 >
                   <p className="text-sm">{message.content}</p>
                   <p className={`text-xs mt-1 ${message.isStaff ? 'text-gray-500' : 'text-blue-100'}`}>
@@ -294,7 +293,7 @@ export function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
                 maxLength={5000}
                 disabled={sending}
               />
-              
+
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <input
@@ -309,7 +308,7 @@ export function TicketDetail({ ticketId, onBack }: TicketDetailProps) {
                     {newMessage.length}/5000
                   </span>
                 </div>
-                
+
                 <Button type="submit" disabled={!newMessage.trim() || sending}>
                   {sending ? 'Sending...' : 'Send Message'}
                 </Button>

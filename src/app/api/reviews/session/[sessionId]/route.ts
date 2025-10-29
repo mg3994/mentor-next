@@ -4,9 +4,9 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     sessionId: string
-  }
+  }>
 }
 
 // Get review for a specific session
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    const { sessionId } = params
+    const { sessionId } = await params
 
     // Verify session access
     const sessionData = await prisma.session.findUnique({

@@ -5,9 +5,9 @@ import { prisma } from '@/lib/db'
 import { ReviewAnalyticsService, type ReviewAnalytics, type MonthlyReviewStats } from '@/lib/review-analytics'
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     mentorId: string
-  }
+  }>
 }
 
 // Get comprehensive review analytics for a mentor
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    const { mentorId } = params
+    const { mentorId } = await params
 
     // Verify access (mentor themselves or admin)
     if (session.user.id !== mentorId) {
@@ -106,7 +106,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const ratingTrend = ReviewAnalyticsService.calculateRatingTrend(monthlyStats)
 
     // Calculate category averages
-    const categoryAverages = ReviewAnalyticsService.calculateCategoryAverages(reviews)
+    const categoryAverages = ReviewAnalyticsService.calculateCategoryAverages(
+      reviews.map(review => ({ 
+        categories: review.categories || undefined 
+      }))
+    )
 
     // Get recent activity (last 10 reviews)
     const recentActivity = reviews.slice(0, 10).map(review => ({

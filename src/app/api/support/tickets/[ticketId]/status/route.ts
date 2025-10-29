@@ -7,7 +7,7 @@ import { createAuditLog } from '@/lib/db-utils'
 // Update ticket status (admin only)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { ticketId: string } }
+  { params }: { params: Promise<{ ticketId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -19,7 +19,7 @@ export async function PUT(
       )
     }
 
-    const { ticketId } = params
+    const { ticketId } = await params
     const body = await request.json()
     const { status, assignedTo } = body
 

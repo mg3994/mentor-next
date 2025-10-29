@@ -8,9 +8,9 @@ import { join } from 'path'
 import { existsSync } from 'fs'
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     fileId: string
-  }
+  }>
 }
 
 // Delete session file
@@ -25,7 +25,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    const { fileId } = params
+    const { fileId } = await params
 
     // Get file record
     const file = await prisma.sessionFile.findUnique({

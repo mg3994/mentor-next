@@ -10,9 +10,9 @@ import { join } from 'path'
 import { existsSync } from 'fs'
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     fileId: string
-  }
+  }>
 }
 
 // Download session file
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    const { fileId } = params
+    const { fileId } = await params
 
     // Get file record
     const file = await prisma.sessionFile.findUnique({

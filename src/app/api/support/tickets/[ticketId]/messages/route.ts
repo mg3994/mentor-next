@@ -10,7 +10,7 @@ import { existsSync } from 'fs'
 // Add message to ticket
 export async function POST(
   request: NextRequest,
-  { params }: { params: { ticketId: string } }
+  { params }: { params: Promise<{ ticketId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -22,7 +22,7 @@ export async function POST(
       )
     }
 
-    const { ticketId } = params
+    const { ticketId } = await params
 
     // Verify ticket exists and user has access
     const ticket = await prisma.supportTicket.findFirst({
@@ -158,7 +158,7 @@ export async function POST(
 // Get messages for ticket
 export async function GET(
   request: NextRequest,
-  { params }: { params: { ticketId: string } }
+  { params }: { params: Promise<{ ticketId: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions)
@@ -170,7 +170,7 @@ export async function GET(
       )
     }
 
-    const { ticketId } = params
+    const { ticketId } = await params
 
     // Verify ticket exists and user has access
     const ticket = await prisma.supportTicket.findFirst({

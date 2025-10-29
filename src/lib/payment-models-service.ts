@@ -48,7 +48,7 @@ export interface UsageTrackingData {
   estimatedMinutes: number
   hourlyRate: number
   totalCost?: number
-  status: 'active' | 'completed' | 'cancelled'
+  status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED'
 }
 
 export class PaymentModelsService {
@@ -230,7 +230,7 @@ export class PaymentModelsService {
         estimatedMinutes: estimatedHours * 60,
         hourlyRate,
         totalCost: estimatedAmount,
-        status: 'active',
+        status: 'ACTIVE',
       })
 
       // Update session with payment info
@@ -460,7 +460,7 @@ export class PaymentModelsService {
           endTime: new Date(),
           actualMinutes,
           totalCost: actualAmount,
-          status: 'completed',
+          status: 'COMPLETED',
         },
       })
 
@@ -517,7 +517,7 @@ export class PaymentModelsService {
           id: usageTracking.id,
           actualMinutes,
           totalCost: actualAmount,
-          status: 'completed',
+          status: 'COMPLETED',
         },
       }
 

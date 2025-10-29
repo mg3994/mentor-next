@@ -127,22 +127,24 @@ async function main() {
 
     // Create pricing models
     for (const pricing of mentorData.pricingModels) {
-      await prisma.pricingModel.upsert({
+      const existingPricing = await prisma.pricingModel.findFirst({
         where: {
-          mentorId_type: {
-            mentorId: mentorProfile.id,
-            type: pricing.type,
-          },
+          mentorId: mentorProfile.id,
+          type: pricing.type,
         },
-        update: {},
-        create: {
+      })
+
+      if (!existingPricing) {
+        await prisma.pricingModel.create({
+          data: {
           mentorId: mentorProfile.id,
           type: pricing.type,
           price: pricing.price,
           duration: pricing.duration,
           description: pricing.description,
-        },
-      })
+          },
+        })
+      }
     }
 
     // Create availability
