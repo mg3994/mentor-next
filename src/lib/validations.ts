@@ -188,13 +188,29 @@ export const analyticsQuerySchema = z.object({
 })
 
 // Enhanced search validation with more filters
-export const advancedMentorSearchSchema = mentorSearchSchema.extend({
+export const advancedMentorSearchSchema = z.object({
+  query: z.string().max(100, 'Search query too long').optional(),
+  expertise: z.array(z.string()).optional(),
+  minPrice: z.number().min(0, 'Price cannot be negative').optional(),
+  maxPrice: z.number().min(0, 'Price cannot be negative').optional(),
+  availability: z.string().optional(), // ISO date string
+  timezone: z.string().optional(),
+  page: z.number().min(1, 'Page must be at least 1').default(1),
+  limit: z.number().min(1, 'Limit must be at least 1').max(50, 'Limit cannot exceed 50').default(10),
   rating: z.number().min(1, 'Rating must be at least 1').max(5, 'Rating must be at most 5').optional(),
   experience: z.enum(['BEGINNER', 'INTERMEDIATE', 'EXPERT']).optional(),
   verified: z.boolean().optional(),
   languages: z.array(z.string()).optional(),
   sortBy: z.enum(['rating', 'price', 'experience', 'sessions']).default('rating'),
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
+}).refine((data) => {
+  if (data.minPrice && data.maxPrice) {
+    return data.minPrice <= data.maxPrice
+  }
+  return true
+}, {
+  message: 'Minimum price cannot be greater than maximum price',
+  path: ['maxPrice'],
 })
 
 // User blocking validation

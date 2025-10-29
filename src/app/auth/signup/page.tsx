@@ -145,7 +145,7 @@ export default function SignUpPage() {
                 disabled={isLoading}
               />
               {errors.name && (
-                <p className="text-sm text-red-600">{errors.name.message || 'Invalid name'}</p>
+                <p className="text-sm text-red-600">{String(errors.name.message) || 'Invalid name'}</p>
               )}
             </div>
 
@@ -159,7 +159,7 @@ export default function SignUpPage() {
                 disabled={isLoading}
               />
               {errors.email && (
-                <p className="text-sm text-red-600">{errors.email.message || 'Invalid email'}</p>
+                <p className="text-sm text-red-600">{String(errors.email.message) || 'Invalid email'}</p>
               )}
             </div>
 
@@ -173,7 +173,7 @@ export default function SignUpPage() {
                 disabled={isLoading}
               />
               {errors.password && (
-                <p className="text-sm text-red-600">{errors.password.message || 'Invalid password'}</p>
+                <p className="text-sm text-red-600">{String(errors.password.message) || 'Invalid password'}</p>
               )}
             </div>
 
@@ -187,7 +187,7 @@ export default function SignUpPage() {
                 disabled={isLoading}
               />
               {errors.confirmPassword && (
-                <p className="text-sm text-red-600">{errors.confirmPassword.message || 'Passwords do not match'}</p>
+                <p className="text-sm text-red-600">{String(errors.confirmPassword.message) || 'Passwords do not match'}</p>
               )}
             </div>
 
@@ -218,7 +218,7 @@ export default function SignUpPage() {
                 </div>
               </div>
               {errors.isMentee && (
-                <p className="text-sm text-red-600">{errors.isMentee.message || 'Please select a role'}</p>
+                <p className="text-sm text-red-600">{String(errors.isMentee.message) || 'Please select a role'}</p>
               )}
             </div>
 
@@ -241,7 +241,7 @@ export default function SignUpPage() {
               </Label>
             </div>
             {errors.agreeToTerms && (
-              <p className="text-sm text-red-600">{errors.agreeToTerms.message || 'You must agree to the terms'}</p>
+              <p className="text-sm text-red-600">{String(errors.agreeToTerms.message) || 'You must agree to the terms'}</p>
             )}
 
             <Button type="submit" className="w-full" disabled={isLoading}>
